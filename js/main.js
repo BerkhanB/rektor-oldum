@@ -50,11 +50,11 @@ import {
   showGameWonModal,
   el,
   on,
-} from './ui.js?v=0.4.62';
+} from './ui.js?v=0.4.63';
 
-import { CHANGELOG, hasUnseenChanges, setLastSeenVersion } from './changelog.js?v=0.4.62';
+import { CHANGELOG, hasUnseenChanges, setLastSeenVersion } from './changelog.js?v=0.4.63';
 
-import { saveGame, loadGame, autoSave, getSaveSlots, deleteSave, exportSave, importSave, sanitizeForSave } from './save.js?v=0.4.28';
+import { saveGame, loadGame, autoSave, getSaveSlots, deleteSave, exportSave, importSave, sanitizeForSave } from './save.js?v=0.4.63';
 import { calculateScore, scoreBreakdown, submitScore, getTopScores, initFirebase, isLeaderboardUnavailable, saveLocalScore, getLocalScores } from './leaderboard.js?v=0.4.45';
 import { showTutorialIfNeeded, replayTutorial } from './tutorial.js?v=0.4.55';
 import { initAudio, playSound, toggleMute, isMuted, startMusic, stopMusic, setMusicVolume, setSFXVolume, getAudioSettings } from './audio.js?v=0.4.24';
@@ -188,6 +188,9 @@ function init() {
   // Klavye kısayolları
   _bindKeyboardShortcuts();
 
+  // Açılış sahnesi: yıldızlar + paralaks (v0.4.63)
+  _initMenuScene();
+
   // Sayfa yüklendiğinde kayıt varlığını kontrol et
   _checkSaveOnLoad();
 
@@ -198,6 +201,47 @@ function init() {
   initFirebase().catch(err => console.warn('[main] Firebase önyükleme başarısız (önemli değil):', err.message));
 
   console.log('[main] Başlangıç tamamlandı.');
+}
+
+/**
+ * Açılış ekranı sahnesi: rastgele yıldızlar + fare ile paralaks.
+ * Hareket azaltma tercihi açıksa paralaks devre dışı kalır.
+ */
+function _initMenuScene() {
+  const starBox = el('menu-stars');
+  if (starBox && !starBox.childElementCount) {
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < 48; i++) {
+      const s = document.createElement('i');
+      s.textContent = '✦';
+      s.style.left = (Math.random() * 100) + '%';
+      s.style.top  = (Math.random() * 62) + '%';
+      s.style.fontSize = (4 + Math.random() * 7) + 'px';
+      s.style.animationDelay = (Math.random() * 4) + 's';
+      frag.appendChild(s);
+    }
+    starBox.appendChild(frag);
+  }
+
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) return;
+
+  const layers = Array.from(document.querySelectorAll('.menu-layer'));
+  if (layers.length === 0) return;
+  let ticking = false;
+  window.addEventListener('mousemove', (e) => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const dx = (e.clientX / window.innerWidth) - 0.5;
+      const dy = (e.clientY / window.innerHeight) - 0.5;
+      for (const l of layers) {
+        const d = Number(l.dataset.depth) || 0;
+        l.style.transform = `translate(${dx * d}px, ${dy * d * 0.35}px)`;
+      }
+      ticking = false;
+    });
+  }, { passive: true });
 }
 
 /**
@@ -214,6 +258,21 @@ function _checkSaveOnLoad() {
   if (loadBtn) {
     loadBtn.classList.add('btn-has-save');
     loadBtn.innerHTML = '<span class="btn-icon">💾</span> Kayıtlı Oyunu Yükle';
+  }
+
+  // Açılış ekranında son kaydı göster (gerçek veri; kayıt yoksa gizli kalır)
+  const newest = slots
+    .filter(sl => !sl.isEmpty)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
+  const strip = el('menu-lastsave');
+  if (strip && newest) {
+    const uni  = newest.uniName || '—';
+    const yr   = newest.year ?? '—';
+    const trn  = newest.turn ?? '—';
+    strip.innerHTML = `💾 Son kayıt: <b>${uni}</b>`
+      + `<span class="ls-sep">·</span>${yr}. yıl`
+      + `<span class="ls-sep">·</span>${trn}. dönem`;
+    strip.classList.remove('hidden');
   }
 
   // Kısa bildirim — bildirim sistemi henüz DOM'a bağlanmadıysa gecikmeli göster

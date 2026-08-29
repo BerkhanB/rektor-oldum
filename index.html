@@ -22,8 +22,8 @@
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:image" content="https://prof-oguzergin.github.io/rektor-oldum/og-image.jpg">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
-  <link rel="stylesheet" href="style.css?v=0.4.55">
-  <link rel="stylesheet" href="css/components.css?v=0.4.55">
+  <link rel="stylesheet" href="style.css?v=0.4.63">
+  <link rel="stylesheet" href="css/components.css?v=0.4.63">
 
   <!-- Google Analytics 4 -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-XL5QEFF62Y"></script>
@@ -41,17 +41,95 @@
   ════════════════════════════════════════════════════════════════════════ -->
   <div id="screen-menu" class="screen active">
     <div class="menu-bg">
+
+      <!-- Sinematik kampüs sahnesi: 4 paralaks katmanı (v0.4.63) -->
+      <div class="menu-sky"></div>
+      <div class="menu-stars" id="menu-stars"></div>
+
+      <svg class="menu-layer ml-1" viewBox="0 0 1440 420" preserveAspectRatio="xMidYMax slice" data-depth="6" aria-hidden="true">
+        <path d="M0,300 Q220,210 440,270 T900,250 T1440,290 L1440,420 L0,420Z" fill="#10122b"/>
+        <path d="M0,340 Q300,270 620,320 T1160,300 T1440,330 L1440,420 L0,420Z" fill="#0c0e22"/>
+      </svg>
+
+      <svg class="menu-layer ml-2" viewBox="0 0 1440 380" preserveAspectRatio="xMidYMax slice" data-depth="14" aria-hidden="true">
+        <g fill="#151735">
+          <rect x="120" y="180" width="70" height="200"/><rect x="210" y="150" width="54" height="230"/>
+          <rect x="300" y="205" width="90" height="175"/><rect x="1040" y="165" width="66" height="215"/>
+          <rect x="1130" y="200" width="80" height="180"/><rect x="1235" y="150" width="58" height="230"/>
+        </g>
+        <g fill="#1c1f45">
+          <rect x="640" y="215" width="160" height="165"/>
+          <path d="M640,215 Q720,120 800,215Z"/>
+        </g>
+        <g class="menu-win" fill="#ffcf5e" opacity=".8">
+          <rect x="138" y="205" width="8" height="12"/><rect x="160" y="235" width="8" height="12"/>
+          <rect x="228" y="185" width="7" height="11"/><rect x="242" y="220" width="7" height="11"/>
+          <rect x="1058" y="200" width="8" height="12"/><rect x="1250" y="190" width="7" height="11"/>
+          <rect x="1268" y="230" width="7" height="11"/>
+        </g>
+      </svg>
+
+      <svg class="menu-layer ml-3" viewBox="0 0 1440 460" preserveAspectRatio="xMidYMax slice" data-depth="26" aria-hidden="true">
+        <g fill="#1a1c3c">
+          <rect x="150" y="250" width="230" height="210"/><rect x="150" y="230" width="230" height="24"/>
+          <rect x="1010" y="250" width="250" height="210"/><rect x="1010" y="230" width="250" height="24"/>
+        </g>
+        <g>
+          <rect x="676" y="120" width="88" height="340" fill="#20244f"/>
+          <path d="M672,120 L720,58 L768,120Z" fill="#2b2f63"/>
+          <circle cx="720" cy="150" r="15" fill="#0a0c1c" stroke="#4ecca3" stroke-width="2.5"/>
+          <line x1="720" y1="150" x2="720" y2="141" stroke="#4ecca3" stroke-width="2"/>
+          <line x1="720" y1="150" x2="727" y2="153" stroke="#4ecca3" stroke-width="2"/>
+          <rect x="716" y="46" width="8" height="16" fill="#2b2f63"/>
+          <circle class="menu-beacon" cx="720" cy="44" r="5" fill="#4ecca3"/>
+        </g>
+        <g fill="#1e2148">
+          <rect x="560" y="300" width="120" height="160"/><rect x="760" y="300" width="120" height="160"/>
+        </g>
+        <g class="menu-win" fill="#ffd15c">
+          <rect x="176" y="276" width="10" height="16"/><rect x="204" y="276" width="10" height="16"/>
+          <rect x="232" y="276" width="10" height="16"/><rect x="288" y="276" width="10" height="16"/>
+          <rect x="176" y="316" width="10" height="16"/><rect x="232" y="316" width="10" height="16"/>
+          <rect x="316" y="316" width="10" height="16"/><rect x="204" y="356" width="10" height="16"/>
+          <rect x="1040" y="276" width="10" height="16"/><rect x="1072" y="276" width="10" height="16"/>
+          <rect x="1128" y="276" width="10" height="16"/><rect x="1200" y="276" width="10" height="16"/>
+          <rect x="1040" y="316" width="10" height="16"/><rect x="1160" y="316" width="10" height="16"/>
+          <rect x="1224" y="316" width="10" height="16"/>
+          <rect x="590" y="330" width="9" height="14"/><rect x="640" y="330" width="9" height="14"/>
+          <rect x="792" y="330" width="9" height="14"/><rect x="842" y="330" width="9" height="14"/>
+          <rect x="700" y="190" width="8" height="13"/><rect x="732" y="190" width="8" height="13"/>
+          <rect x="700" y="230" width="8" height="13"/><rect x="732" y="230" width="8" height="13"/>
+        </g>
+      </svg>
+
+      <svg class="menu-layer ml-4" viewBox="0 0 1440 240" preserveAspectRatio="xMidYMax slice" data-depth="46" aria-hidden="true">
+        <rect x="0" y="180" width="1440" height="60" fill="#080a16"/>
+        <path d="M0,180 Q360,150 720,178 T1440,172 L1440,240 L0,240Z" fill="#0a1a15"/>
+        <g fill="#0c2019">
+          <ellipse cx="90" cy="150" rx="52" ry="60"/><rect x="84" y="150" width="12" height="50" fill="#0a1712"/>
+          <ellipse cx="1360" cy="150" rx="56" ry="64"/><rect x="1354" y="150" width="12" height="52" fill="#0a1712"/>
+          <ellipse cx="250" cy="172" rx="40" ry="46"/><ellipse cx="1200" cy="170" rx="44" ry="50"/>
+        </g>
+        <g stroke="#1c2740" stroke-width="4">
+          <line x1="470" y1="200" x2="470" y2="120"/><line x1="970" y1="200" x2="970" y2="120"/>
+        </g>
+        <circle cx="470" cy="116" r="7" fill="#ffdf8a"/><circle cx="970" cy="116" r="7" fill="#ffdf8a"/>
+        <circle class="menu-beacon" cx="470" cy="116" r="14" fill="#ffdf8a" opacity=".18"/>
+        <circle class="menu-beacon" cx="970" cy="116" r="14" fill="#ffdf8a" opacity=".18"/>
+      </svg>
+
       <div class="menu-overlay"></div>
-      <span class="menu-star-1">✦</span>
-      <span class="menu-star-2">✦</span>
-      <span class="menu-star-3">✦</span>
-      <span class="menu-star-4">✦</span>
+
       <div class="menu-center">
         <div class="menu-logo">
           <span class="menu-icon">🎓</span>
           <h1 class="menu-title">Rektör Oldum</h1>
           <p class="menu-subtitle">Türkiye'nin en iyi üniversitesini kur</p>
         </div>
+
+        <!-- Son kayıt şeridi: yalnızca gerçek kayıt varsa JS ile doldurulur -->
+        <div class="menu-lastsave hidden" id="menu-lastsave"></div>
+
         <div class="menu-buttons">
           <button id="btn-new-game" class="btn btn-primary btn-lg">
             <span class="btn-icon">🎓</span> Yeni Oyun
@@ -59,25 +137,29 @@
           <button id="btn-load-game" class="btn btn-secondary btn-lg">
             <span class="btn-icon">💾</span> Kayıt Yükle
           </button>
-          <button id="btn-settings" class="btn btn-ghost btn-lg">
-            <span class="btn-icon">⚙️</span> Ayarlar
-          </button>
-          <button id="btn-feedback" class="btn btn-ghost btn-lg" title="Hata bildir veya öneride bulun">
-            <span class="btn-icon">💬</span> Geri Bildirim
-          </button>
-          <button id="btn-changelog" class="btn btn-ghost btn-lg" title="Son değişiklikler ve düzeltmeler">
-            <span class="btn-icon">📋</span> Yenilikler
-          </button>
+          <div class="menu-btn-row">
+            <button id="btn-settings" class="btn btn-ghost btn-lg">
+              <span class="btn-icon">⚙️</span> Ayarlar
+            </button>
+            <button id="btn-feedback" class="btn btn-ghost btn-lg" title="Hata bildir veya öneride bulun">
+              <span class="btn-icon">💬</span> Bildir
+            </button>
+            <button id="btn-changelog" class="btn btn-ghost btn-lg" title="Son değişiklikler ve düzeltmeler">
+              <span class="btn-icon">📋</span> Yenilikler
+            </button>
+          </div>
         </div>
+
         <div class="menu-features">
           <span class="menu-feature-chip">🏛️ 50+ Rakip Üniversite</span>
           <span class="menu-feature-chip">👨‍🏫 Akademik Kadro Yönetimi</span>
           <span class="menu-feature-chip">💰 Bütçe ve Yerleşke</span>
           <span class="menu-feature-chip">📊 Dünya Sıralaması</span>
         </div>
-        <div class="menu-version">v0.4.62</div>
+        <div class="menu-version">v0.4.63</div>
       </div>
     </div>
+  </div>
   </div>
 
   <!-- ════════════════════════════════════════════════════════════════════════
@@ -472,7 +554,7 @@
   <script>console.log('[inline] Script tag çalışıyor, before module');</script>
   <script type="module">
     // Cache-bust: build hash veya manuel versiyon. Her release'de bumpla.
-    const APP_VERSION = '0.4.62';
+    const APP_VERSION = '0.4.63';
     console.log('[inline-module] Sürüm:', APP_VERSION);
     try {
       const m = await import(`./js/main.js?v=${APP_VERSION}`);

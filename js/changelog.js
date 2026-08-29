@@ -6,6 +6,16 @@
 
 export const CHANGELOG = [
   {
+    version: '0.4.63',
+    date: '2026-08-30',
+    title: 'Yeni açılış ekranı: sinematik kampüs',
+    items: [
+      { type: 'feat', text: 'Ana menü yeniden tasarlandı. Arkada gece kampüsü sahnesi var: saat kulesi, fakülte blokları, ağaçlar ve sokak fenerleri dört ayrı katmanda çizildi. Fareyi gezdirdikçe katmanlar farklı hızlarda kayıyor (paralaks), pencere ışıkları ve kule feneri yanıp sönüyor. Sahne tamamen SVG ile çizildi, ek görsel dosya yüklenmiyor.' },
+      { type: 'feat', text: 'Menü butonları cam görünümlü bir panelde toplandı; Ayarlar, Bildir ve Yenilikler tek satıra alındı. Kayıtlı oyununuz varsa başlığın altında son kaydınız görünüyor: üniversite adı, yıl ve dönem.' },
+      { type: 'fix', text: 'Hareket azaltma tercihi açık olan cihazlarda menü animasyonları ve paralaks devre dışı kalıyor.' },
+    ],
+  },
+  {
     version: '0.4.62',
     date: '2026-06-18',
     title: 'Kapasite durumu açıklaması ve yükseltme süresi göstergesi',

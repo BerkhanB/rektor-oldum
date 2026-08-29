@@ -158,16 +158,15 @@ body {
    EKRAN 1: ANA MENÜ
 ───────────────────────────────────────────────────────────────────────── */
 #screen-menu {
-  background: #0a0a1a;
+  background: #05060f;
 }
 
 /* Yıldız parıltı animasyonu */
 @keyframes sparkle {
-  0%, 100% { opacity: 0; transform: scale(0.6) translateZ(0); }
-  50%       { opacity: 0.7; transform: scale(1) translateZ(0); }
+  0%, 100% { opacity: 0.12; transform: scale(0.6) translateZ(0); }
+  50%       { opacity: 0.85; transform: scale(1) translateZ(0); }
 }
 
-/* Logo nefes/pulse animasyonu */
 @keyframes title-pulse {
   0%, 100% { text-shadow: 0 0 40px rgba(78,204,163,0.45), 0 0 12px rgba(255,255,255,0.25); }
   50%       { text-shadow: 0 0 60px rgba(78,204,163,0.75), 0 0 20px rgba(255,255,255,0.4), 0 0 80px rgba(78,204,163,0.3); }
@@ -178,6 +177,10 @@ body {
   50%       { transform: translateY(-6px); }
 }
 
+/* Pencere ışıkları ve fener */
+@keyframes win-flicker { 0%, 100% { opacity: 0.85; } 50% { opacity: 0.5; } }
+@keyframes beacon-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.95; } }
+
 .menu-bg {
   width: 100%;
   height: 100%;
@@ -185,69 +188,68 @@ body {
   align-items: center;
   justify-content: center;
   position: relative;
-  background: url('assets/menu-bg.jpg') center/cover no-repeat;
+  overflow: hidden;
+  background: #05060f;
 }
 
-/* Yıldız parıltı noktaları (pseudo-elements ile) */
-.menu-bg::before,
-.menu-bg::after {
-  content: '✦';
-  position: absolute;
-  color: rgba(255,255,255,0.8);
-  font-size: 10px;
-  pointer-events: none;
-  animation: sparkle 4s infinite ease-in-out;
-  transform: translateZ(0);
-}
-
-.menu-bg::before {
-  top: 18%;
-  left: 12%;
-  animation-delay: 0s;
-  font-size: 8px;
-}
-
-.menu-bg::after {
-  top: 72%;
-  right: 15%;
-  animation-delay: 2s;
-  font-size: 12px;
-}
-
-.menu-overlay {
+/* ── Gece gökyüzü ── */
+.menu-sky {
   position: absolute;
   inset: 0;
   background:
-    rgba(10,10,30,0.62),
-    radial-gradient(ellipse at center, rgba(10,10,30,0.2) 0%, rgba(10,10,30,0.55) 100%),
-    radial-gradient(ellipse at 20% 50%, rgba(233,69,96,0.10) 0%, transparent 55%),
-    radial-gradient(ellipse at 80% 50%, rgba(78,204,163,0.08) 0%, transparent 55%);
-  pointer-events: none;
+    radial-gradient(ellipse 120% 80% at 50% 105%, rgba(78,204,163,0.16) 0%, transparent 55%),
+    radial-gradient(ellipse 90% 70% at 78% 88%, rgba(233,69,96,0.10) 0%, transparent 50%),
+    linear-gradient(180deg, #05060f 0%, #0b0d23 42%, #171a3d 72%, #232659 100%);
 }
 
-/* Ek yıldız noktaları (ek element kullanmadan span ile) */
-.menu-star-1, .menu-star-2, .menu-star-3, .menu-star-4 {
+.menu-stars { position: absolute; inset: 0; pointer-events: none; }
+.menu-stars i {
   position: absolute;
-  color: rgba(255,255,255,0.75);
-  font-size: 8px;
-  pointer-events: none;
+  color: rgba(255,255,255,0.85);
+  font-style: normal;
   animation: sparkle 4s infinite ease-in-out;
   transform: translateZ(0);
-  z-index: 0;
 }
-.menu-star-1 { top: 28%; left: 80%; animation-delay: 0.8s; font-size: 10px; }
-.menu-star-2 { top: 60%; left: 8%;  animation-delay: 1.6s; font-size: 7px; }
-.menu-star-3 { top: 12%; left: 55%; animation-delay: 3s;   font-size: 9px; }
-.menu-star-4 { top: 82%; left: 42%; animation-delay: 1.2s; font-size: 6px; }
+
+/* ── Paralaks katmanları (kampüs silueti) ── */
+.menu-layer {
+  position: absolute;
+  left: -4%;
+  right: -4%;
+  bottom: 0;
+  width: 108%;
+  pointer-events: none;
+  will-change: transform;
+  transition: transform 0.18s ease-out;
+}
+.ml-1 { z-index: 1; }
+.ml-2 { z-index: 2; }
+.ml-3 { z-index: 3; }
+.ml-4 { z-index: 4; }
+
+.menu-win    { animation: win-flicker 5s infinite ease-in-out; }
+.menu-beacon { animation: beacon-pulse 2.4s infinite ease-in-out; }
+
+/* ── Okunurluk için karartma ── */
+.menu-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 62% at 50% 45%, rgba(5,6,15,0.74) 0%, rgba(5,6,15,0.32) 46%, transparent 74%),
+    linear-gradient(180deg, rgba(5,6,15,0.55) 0%, transparent 22%, transparent 62%, rgba(5,6,15,0.45) 100%);
+}
 
 .menu-center {
   position: relative;
-  z-index: 1;
+  z-index: 6;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-2xl);
+  gap: var(--space-lg);
   text-align: center;
+  padding: 1rem;
 }
 
 .menu-logo {
@@ -258,11 +260,10 @@ body {
 }
 
 .menu-icon {
-  font-size: 3.8rem;
+  font-size: 3.4rem;
   line-height: 1;
   display: block;
-  margin-bottom: 0.25rem;
-  animation: icon-float 3s ease-in-out infinite;
+  animation: icon-float 3.4s ease-in-out infinite;
   filter: drop-shadow(0 0 16px rgba(78,204,163,0.6));
 }
 
@@ -283,11 +284,44 @@ body {
   letter-spacing: 0.5px;
 }
 
+/* ── Son kayıt şeridi (yalnızca gerçek kayıt varsa görünür) ── */
+.menu-lastsave {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  background: rgba(78,204,163,0.10);
+  border: 1px solid rgba(78,204,163,0.28);
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.82);
+  letter-spacing: 0.2px;
+}
+.menu-lastsave b { color: var(--accent-green); font-weight: 700; }
+.menu-lastsave .ls-sep { color: rgba(255,255,255,0.28); }
+
+/* ── Cam panel ── */
 .menu-buttons {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
-  min-width: 260px;
+  gap: var(--space-sm);
+  width: 300px;
+  padding: 1.15rem;
+  border-radius: 18px;
+  background: rgba(10,12,26,0.46);
+  border: 1px solid rgba(255,255,255,0.09);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
+}
+
+.menu-btn-row { display: flex; gap: 0.5rem; }
+.menu-btn-row .btn {
+  flex: 1;
+  font-size: 0.82rem;
+  padding: 0.6rem 0.4rem;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
 .btn-lg {
@@ -297,9 +331,7 @@ body {
   gap: var(--space-sm);
 }
 
-.btn-icon {
-  font-style: normal;
-}
+.btn-icon { font-style: normal; }
 
 /* Özellik chip şeridi */
 .menu-features {
@@ -308,12 +340,11 @@ body {
   justify-content: center;
   gap: 0.5rem;
   max-width: 520px;
-  margin-top: 0.25rem;
 }
 
 .menu-feature-chip {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.055);
+  border: 1px solid rgba(255,255,255,0.13);
   border-radius: 999px;
   padding: 0.3rem 0.85rem;
   font-size: 0.72rem;
@@ -334,6 +365,23 @@ body {
   font-size: var(--font-size-xs);
   color: var(--text-faint);
   letter-spacing: 1px;
+}
+
+/* Ana menü: dar ekran uyarlaması */
+@media (max-width: 640px) {
+  .menu-center { gap: var(--space-md); }
+  .menu-icon { font-size: 2.6rem; }
+  .menu-buttons { width: min(88vw, 320px); padding: 1rem; }
+  .menu-btn-row .btn { font-size: 0.74rem; padding: 0.55rem 0.3rem; }
+  .menu-features { max-width: 92vw; }
+  .menu-feature-chip { font-size: 0.66rem; padding: 0.26rem 0.7rem; }
+  .menu-lastsave { font-size: 0.72rem; padding: 0.4rem 0.8rem; }
+}
+
+/* Hareket azaltma tercihi: animasyonları durdur */
+@media (prefers-reduced-motion: reduce) {
+  .menu-stars i, .menu-win, .menu-beacon, .menu-icon, .menu-title { animation: none; }
+  .menu-layer { transition: none; }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
