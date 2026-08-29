@@ -6,6 +6,14 @@
 
 export const CHANGELOG = [
   {
+    version: '0.4.64',
+    date: '2026-08-30',
+    title: 'Açılış sahnesinde saat kulesi görünür oldu',
+    items: [
+      { type: 'fix', text: 'Yeni açılış ekranındaki saat kulesi tam menü panelinin arkasında kalıyordu. Kule sahnenin sol tarafına alındı, boyu uzatıldı ve kampüs silueti biraz yükseltildi; artık kule, kadranı ve tepesindeki fener açıkça görünüyor.' },
+    ],
+  },
+  {
     version: '0.4.63',
     date: '2026-08-30',
     title: 'Yeni açılış ekranı: sinematik kampüs',
