@@ -6,6 +6,14 @@
 
 export const CHANGELOG = [
   {
+    version: '0.4.75',
+    date: '2026-09-13',
+    title: 'Ana Menü Butonları ve Modül Yükleme Düzeltmesi',
+    items: [
+      { type: 'fix', text: 'Ana sayfadaki butonların (Yeni Oyun, Kayıt Yükle vb.) tıklanamamasına yol açan modül export çakışması (SyntaxError: Duplicate export) giderildi; tüm ana sayfa butonları eksiksiz çalışıyor.' },
+    ],
+  },
+  {
     version: '0.4.74',
     date: '2026-09-13',
     title: 'Senaryo ve Sıralama Hedefleri: Ulusal vs Dünya Sıralaması Düzeltmesi',

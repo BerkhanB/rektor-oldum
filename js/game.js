@@ -70,7 +70,7 @@ import {
   ACHIEVEMENTS,
 } from './alumni_events_achievements.js?v=0.4.24';
 
-export { RANDOM_EVENTS, ACHIEVEMENTS, getAchievementStats, checkAchievements, checkAndUpdateAchievements, organizeAlumniEvent, applyRandomEventChoice, ACCREDITATION_BODIES };
+export { RANDOM_EVENTS, ACHIEVEMENTS, getAchievementStats, checkAchievements, organizeAlumniEvent, applyRandomEventChoice, ACCREDITATION_BODIES };
 
 import { initTTOState, establishTTO, upgradeTTO, processTTO, acceptDeal, rejectDeal, TTO_CONFIG } from './tto.js?v=0.4.24';
 export { establishTTO, upgradeTTO, acceptDeal, rejectDeal, TTO_CONFIG };
