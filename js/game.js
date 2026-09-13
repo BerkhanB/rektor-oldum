@@ -3692,6 +3692,29 @@ export const AVAILABLE_NEW_DEPARTMENTS = [
  */
 export function nextTurn() {
   if (!_state) throw new Error('Oyun başlatılmamış. Önce initGame() çağırın.');
+
+  // Hatalı senaryo erken zaferi bayrağını güvenceye al ve onar
+  const scWinPre = _state?.meta?.scenarioWinCondition;
+  if (scWinPre?.type === 'ranking') {
+    const isWorldTarget = scWinPre.isWorld || scWinPre.target > 6;
+    const curWorldRank  = _state.university?.intlRanking || 999;
+    if (isWorldTarget && curWorldRank > scWinPre.target) {
+      _gameWon = false;
+      if (_state._internal) {
+        _state._internal.gameWon = false;
+        _state._internal.endMessage = null;
+      }
+    }
+  } else if (!scWinPre && !_state?.meta?.isSandbox) {
+    if (_state?._internal?.gameWon && _state._internal?.endMessage?.includes('ulusal sıralamada 1.')) {
+      _gameWon = false;
+      if (_state._internal) {
+        _state._internal.gameWon = false;
+        _state._internal.endMessage = null;
+      }
+    }
+  }
+
   if (_gameOver || _gameWon) {
     const msg = _state._internal?.endMessage || (_gameWon ? '🏆 Oyun kazanıldı.' : 'Oyun bitti.');
     return { gameOver: _gameOver, gameWon: _gameWon, message: msg };
@@ -4297,16 +4320,36 @@ export function checkWinLose() {
       }
 
       // Senaryo: sıralama hedefi (düşük sayı daha iyi)
-      if (scenarioWin.type === 'ranking' && _state.university.ranking <= scenarioWin.target) {
-        _gameWon = true;
-        _state._internal.gameWon = true;
-        _state._internal.endMessage = `Senaryo tamamlandı! Üniversiteniz ${_state.university.ranking}. sıraya yükseldi. Hedef: İlk ${scenarioWin.target}`;
-        return {
-          gameOver: false,
-          gameWon:  true,
-          reason:   'scenario_ranking',
-          message:  _state._internal.endMessage,
-        };
+      if (scenarioWin.type === 'ranking') {
+        const isWorldTarget = scenarioWin.isWorld || scenarioWin.target > 6;
+        let currentRank = isWorldTarget
+          ? _state.university.intlRanking
+          : _state.university.ranking;
+
+        if (isWorldTarget && !currentRank) {
+          try {
+            const intlPillars = calculateIntlPillars(_state);
+            const intlTotal   = calculateIntlTotalScore(intlPillars, THE_2024.pillarsWeights);
+            currentRank       = findIntlRank(intlTotal, THE_2024);
+            _state.university.intlRanking = currentRank;
+          } catch (_) {
+            currentRank = 999;
+          }
+        }
+
+        const rankLabel = isWorldTarget ? 'Dünya sıralamasında' : 'ulusal sıralamada';
+
+        if (currentRank && currentRank <= scenarioWin.target) {
+          _gameWon = true;
+          _state._internal.gameWon = true;
+          _state._internal.endMessage = `Senaryo tamamlandı! Üniversiteniz ${rankLabel} ${currentRank}. sıraya yükseldi. Hedef: İlk ${scenarioWin.target}`;
+          return {
+            gameOver: false,
+            gameWon:  true,
+            reason:   'scenario_ranking',
+            message:  _state._internal.endMessage,
+          };
+        }
       }
 
       // Senaryo: ardışık pozitif bütçe dönemleri
@@ -4357,13 +4400,11 @@ export function checkWinLose() {
         };
       }
 
-      // Kazanma 2: Sıralama 1. oldu (Ulusal veya Dünya 1.si)
-      if (_state.university.ranking === 1 || _state.university.intlRanking === 1) {
+      // Kazanma 2: Sıralama 1. oldu (Dünya Zirvesi)
+      if (_state.university.intlRanking === 1) {
         _gameWon = true;
         _state._internal.gameWon = true;
-        _state._internal.endMessage = _state.university.intlRanking === 1
-          ? 'Tebrikler! Üniversiteniz Dünya Sıralamasında 1. sıraya (Zirveye) yükseldi!'
-          : 'Tebrikler! Üniversiteniz ulusal sıralamada 1. sıraya yükseldi!';
+        _state._internal.endMessage = 'Tebrikler! Üniversiteniz Dünya Sıralamasında 1. sıraya (Zirveye) yükseldi!';
         return {
           gameOver: false,
           gameWon:  true,
@@ -4546,6 +4587,26 @@ function migrateState(state) {
   if (!state.meta.scenarioId) state.meta.scenarioId = null;
   if (!state.meta.scenarioRules) state.meta.scenarioRules = null;
   if (!state.meta.scenarioWinCondition) state.meta.scenarioWinCondition = null;
+
+  // Hatalı senaryo zaferi bayrağını (Ulusal 1.lik vs Dünya İlk 30) otomatik onar
+  const scWinMig = state.meta?.scenarioWinCondition;
+  if (scWinMig?.type === 'ranking') {
+    const isWorldTarget = scWinMig.isWorld || scWinMig.target > 6;
+    const curWorldRank  = state.university?.intlRanking || 999;
+    if (isWorldTarget && curWorldRank > scWinMig.target) {
+      if (state._internal) {
+        state._internal.gameWon = false;
+        state._internal.endMessage = null;
+      }
+    }
+  } else if (!scWinMig && !state.meta?.isSandbox) {
+    if (state._internal?.gameWon && state._internal?.endMessage?.includes('ulusal sıralamada 1.')) {
+      if (state._internal) {
+        state._internal.gameWon = false;
+        state._internal.endMessage = null;
+      }
+    }
+  }
 
   // v0.3 Feature 2: Akreditasyon (dept.accreditation eski kayıtlarda eksik olabilir)
   for (const dept of (state.departments || [])) {
@@ -4915,6 +4976,28 @@ export function setState(loadedState) {
     _lowStudentTurns = 0;
     _gameOver        = !!s._internal?.gameOver;
     _gameWon         = !!s._internal?.gameWon;
+
+    // Hatalı senaryo erken zafer bayrağını (Ulusal 1.lik vs Dünya İlk 30 karmaşası) otomatik onar
+    const scWin = s.meta?.scenarioWinCondition;
+    if (scWin?.type === 'ranking') {
+      const isWorldTarget = scWin.isWorld || scWin.target > 6;
+      const curWorldRank  = s.university?.intlRanking || 999;
+      if (isWorldTarget && curWorldRank > scWin.target) {
+        if (s._internal) {
+          s._internal.gameWon = false;
+          s._internal.endMessage = null;
+        }
+        _gameWon = false;
+      }
+    } else if (!scWin && !s.meta?.isSandbox) {
+      if (s._internal?.gameWon && s._internal?.endMessage?.includes('ulusal sıralamada 1.')) {
+        if (s._internal) {
+          s._internal.gameWon = false;
+          s._internal.endMessage = null;
+        }
+        _gameWon = false;
+      }
+    }
 
     // Iç bayrakları da temizle: yüklenen state'te eski bir game over/win flag'ı
     // kalmışsa nextTurn döngüsü bozulur.

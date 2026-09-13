@@ -6,6 +6,18 @@
 
 export const CHANGELOG = [
   {
+    version: '0.4.74',
+    date: '2026-09-13',
+    title: 'Senaryo ve Sıralama Hedefleri: Ulusal vs Dünya Sıralaması Düzeltmesi',
+    items: [
+      { type: 'fix', text: 'Köklü Devlet senaryosunda ("Hedef: İlk 30") kazanma koşulunun 6 üniversiteli ulusal lig yerine THE 2024 Dünya Sıralamasını (intlRanking) baz alması sağlandı.' },
+      { type: 'fix', text: 'Üniversite Türkiye sıralamasında 1. sıraya (veya 6 rakibin üstüne) yükseldiğinde 1 <= 30 karşılaştırmasından dolayı senaryonun 2. turda erken bitmesi ve "Üniversiteniz 1. sıraya yükseldi" bildirimiyle oyunun kilitlenmesi hatası giderildi.' },
+      { type: 'fix', text: 'Mevcut kayıtlar için otomatik onarım: Kayıt yüklendiğinde erken tetiklenmiş olan Oyun Bitti (gameWon) bayrağı temizlenerek oyunun dünya ilk 30 hedefine doğru kesintisiz devam etmesi sağlandı.' },
+      { type: 'fix', text: 'Standart serbest oyunda ulusal 1.lik (Türkiye birinciliği) oyun sonu kilitlemesi kaldırıldı; 1.lik başarımlarla ödüllendirilirken oyun dünya zirvesine (intlRanking #1) ve prestij 90 hedefine kadar devam eder.' },
+      { type: 'feat', text: 'Dashboard ve skor tablosu ekranlarında sıralama hedefleri ve bonusları "Dünya Sıralaması" ve "Ulusal Sıralama" olarak ayrıştırılarak daha net ifade edildi.' },
+    ],
+  },
+  {
     version: '0.4.73',
     date: '2026-09-13',
     title: 'Sayfa Değişimlerinde Yinelenen Başarım Bildirimi Düzeltmesi',

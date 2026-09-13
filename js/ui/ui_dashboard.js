@@ -41,7 +41,10 @@ export function renderDashboard(state) {
       let goalText = '';
       const wc = sc.winCondition;
       if (wc.type === 'prestige') goalText = `Hedef: <strong>${wc.target} Saygınlık</strong>`;
-      else if (wc.type === 'ranking') goalText = `Hedef: <strong>İlk ${wc.target} Sıralama</strong>`;
+      else if (wc.type === 'ranking') {
+        const isWorld = wc.isWorld || wc.target > 6;
+        goalText = `Hedef: <strong>${isWorld ? 'Dünya Sıralamasında ' : ''}İlk ${wc.target}</strong>`;
+      }
       else if (wc.type === 'budget_positive') goalText = `Hedef: <strong>${wc.consecutiveTurns || 10} Dönem Pozitif Bütçe</strong>`;
       
       const timeText = wc.maxTurns ? ` | Kalan Süre: <strong>${wc.maxTurns - (state.meta.turn - 1)} Dönem</strong>` : '';

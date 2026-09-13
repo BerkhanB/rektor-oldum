@@ -8,8 +8,8 @@ console.log('[main] main.js modülü yükleniyor...');
 // IMPORT
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { initGame, nextTurn, getState, setState, applyDecision, assignCourses, applyQuotas, assignDeptHead, reassignFacultyToDept, generateAdminCandidates, hireAdminStaff, upgradeAdminUnit, promoteAdminStaff, autoPromoteAdminStaff, fireAdminStaff, updateAdminStaffSalary, assignUnitManager, RANDOM_EVENTS, ACHIEVEMENTS, getAchievementStats, checkAchievements, checkAndUpdateAchievements, organizeAlumniEvent, applyRandomEventChoice, ACCREDITATION_BODIES, applyForAccreditation, checkAccreditationRequirements, establishTTO, upgradeTTO, acceptDeal, rejectDeal, foundClub, upgradeClub, dissolveClub, CLUB_TYPES, CLUB_CATEGORIES, SPORTS, foundTeam, upgradeTeam, dissolveTeam, setCourseDifficulty, continueInSandboxMode } from './game.js?v=0.4.73';
-import { ADMIN_TITLES, ADMIN_UNITS } from './data.js?v=0.4.72';
+import { initGame, nextTurn, getState, setState, applyDecision, assignCourses, applyQuotas, assignDeptHead, reassignFacultyToDept, generateAdminCandidates, hireAdminStaff, upgradeAdminUnit, promoteAdminStaff, autoPromoteAdminStaff, fireAdminStaff, updateAdminStaffSalary, assignUnitManager, RANDOM_EVENTS, ACHIEVEMENTS, getAchievementStats, checkAchievements, checkAndUpdateAchievements, organizeAlumniEvent, applyRandomEventChoice, ACCREDITATION_BODIES, applyForAccreditation, checkAccreditationRequirements, establishTTO, upgradeTTO, acceptDeal, rejectDeal, foundClub, upgradeClub, dissolveClub, CLUB_TYPES, CLUB_CATEGORIES, SPORTS, foundTeam, upgradeTeam, dissolveTeam, setCourseDifficulty, continueInSandboxMode } from './game.js?v=0.4.74';
+import { ADMIN_TITLES, ADMIN_UNITS } from './data.js?v=0.4.74';
 
 import {
   showScreen,
@@ -51,12 +51,12 @@ import {
   initSafeModalBackdropDismiss,
   el,
   on,
-} from './ui.js?v=0.4.73';
+} from './ui.js?v=0.4.74';
 
-import { CHANGELOG, hasUnseenChanges, setLastSeenVersion } from './changelog.js?v=0.4.73';
+import { CHANGELOG, hasUnseenChanges, setLastSeenVersion } from './changelog.js?v=0.4.74';
 
 import { saveGame, loadGame, autoSave, getSaveSlots, deleteSave, exportSave, importSave, sanitizeForSave } from './save.js?v=0.4.28';
-import { calculateScore, scoreBreakdown, submitScore, getTopScores, initFirebase, isLeaderboardUnavailable, saveLocalScore, getLocalScores } from './leaderboard.js?v=0.4.45';
+import { calculateScore, scoreBreakdown, submitScore, getTopScores, initFirebase, isLeaderboardUnavailable, saveLocalScore, getLocalScores } from './leaderboard.js?v=0.4.74';
 import { showTutorialIfNeeded, replayTutorial } from './tutorial.js?v=0.4.24';
 import { initAudio, playSound, toggleMute, isMuted, startMusic, stopMusic, setMusicVolume, setSFXVolume, getAudioSettings } from './audio.js?v=0.4.24';
 
@@ -899,6 +899,24 @@ function _onNextTurn() {
 
   const currentState = getState();
   if (!currentState) return;
+
+  // Hatalı senaryo erken zafer bayrağını (Ulusal 1.lik vs Dünya İlk 30 karmaşası) temizle
+  const scWin = currentState.meta?.scenarioWinCondition;
+  if (scWin?.type === 'ranking') {
+    const isWorldTarget = scWin.isWorld || scWin.target > 6;
+    const curWorldRank  = currentState.university?.intlRanking || 999;
+    if (isWorldTarget && curWorldRank > scWin.target && currentState._internal?.gameWon) {
+      currentState._internal.gameWon = false;
+      currentState._internal.endMessage = null;
+      setState(currentState);
+    }
+  } else if (!scWin && !currentState.meta?.isSandbox) {
+    if (currentState._internal?.gameWon && currentState._internal?.endMessage?.includes('ulusal sıralamada 1.')) {
+      currentState._internal.gameWon = false;
+      currentState._internal.endMessage = null;
+      setState(currentState);
+    }
+  }
 
   // Oyun bittiyse/kazanıldıysa simülasyon yapma (Emir raporu — boş özet
   // modal'ı açılıyordu çünkü nextTurn() "Oyun bitti." döndürüp

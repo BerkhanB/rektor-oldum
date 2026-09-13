@@ -4,7 +4,7 @@
  */
 
 import * as Legacy from './ui_legacy.js';
-import * as Modular from './ui/ui_modular.js?v=0.4.73';
+import * as Modular from './ui/ui_modular.js?v=0.4.74';
 
 // Modüler UI artık varsayılan (Legacy devre dışı)
 const isModular = () => true;

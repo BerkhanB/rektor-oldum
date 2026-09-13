@@ -2548,7 +2548,7 @@ export const SCENARIOS = {
       agingInfrastructure: true,    // Binalar %60 durumda başlar
       bureaucracyPenalty: 0.15,     // İşlem gecikmesi +%15
     },
-    winCondition: { type: 'ranking', target: 30, maxTurns: 25 },
+    winCondition: { type: 'ranking', target: 30, isWorld: true, maxTurns: 25 },
     flavorText: '"Geleneği korurken geleceği inşa et."',
   },
 

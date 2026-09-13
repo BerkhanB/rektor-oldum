@@ -172,7 +172,7 @@ export function scoreBreakdown(state) {
 
   const lines = [
     `Saygınlık (${prestige}) × 10 = ${prestige * 10} puan`,
-    `Sıralama (#${ranking}) bonusu = ${(51 - Math.max(1, Math.min(50, ranking))) * 5} puan`,
+    `Ulusal Sıralama (#${ranking}) bonusu = ${(51 - Math.max(1, Math.min(50, ranking))) * 5} puan`,
     `Mezun (${mezun}) / 10 = ${Math.round(mezun / 10)} puan`,
     `Yıl (${yil}) × 2 = ${yil * 2} puan`,
   ];
