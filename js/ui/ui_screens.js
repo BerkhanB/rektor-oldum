@@ -1,4 +1,4 @@
-import { el, qs, qsa, on, showModal, showNotification } from './ui_base.js';
+import { el, qs, qsa, on, showModal, hideModal, showNotification } from './ui_base.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EKRAN YÖNETİMİ
@@ -156,3 +156,93 @@ function _escHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+/**
+ * Oyun kazanıldığında kutlama modal'ını gösterir.
+ * @param {object} state — Oyun durumu
+ * @param {string} winReason — checkWinLose().reason değeri
+ * @param {Function} calculateScore — Skor hesaplama fonksiyonu (leaderboard.js'ten enjekte)
+ * @param {Function} scoreBreakdown — Skor kırılımı fonksiyonu
+ * @param {Function} onSubmitScore — Leaderboard skor gönderme callback'i
+ */
+export function showGameWonModal(state, winReason, calculateScore, scoreBreakdown, onSubmitScore) {
+  const scenarioId = state?.meta?.scenario || null;
+
+  // Senaryo bazlı özel mesajlar
+  const scenarioMessages = {
+    vakif_kurtarma: 'Üniversiteyi mali krizden çıkardınız! Bütçeyi 10 dönem boyunca pozitif tuttunuz.',
+    yeni_kurulan:   'Üniversitenizin saygınlık hedefine ulaştınız! 60 puanı geçtiniz.',
+    koklu_devlet:   'Sıralama hedefini tutturdunuz! İlk 30\'a girdiniz.',
+  };
+
+  // Kazanma nedeni mesajı
+  const reasonMessages = {
+    scenario_budget_positive: scenarioMessages[scenarioId] || 'Bütçeyi peş peşe pozitif tuttunuz.',
+    scenario_prestige:        scenarioMessages[scenarioId] || 'Saygınlık hedefine ulaştınız.',
+    scenario_ranking:         scenarioMessages[scenarioId] || 'Sıralama hedefini tutturdunuz.',
+    prestige_max:             'Üniversiteniz dünya çapında lider oldu! Saygınlık 90 puanın üzerine çıktı.',
+    ranking_first:            'Üniversiteniz ulusal sıralamada 1. sıraya yükseldi!',
+  };
+
+  const winMessage = reasonMessages[winReason]
+    || scenarioMessages[scenarioId]
+    || 'Üniversiteniz başarıyla hedeflerine ulaştı!';
+
+  const score     = calculateScore ? calculateScore(state) : 0;
+  const breakdown = scoreBreakdown ? scoreBreakdown(state) : [];
+
+  const breakdownHtml = breakdown.length
+    ? `<ul style="margin:10px 0 0;padding-left:18px;list-style:disc;">
+        ${breakdown.map(line => `<li style="font-size:12px;color:var(--text-muted,#aaa);margin:2px 0;">${line}</li>`).join('')}
+       </ul>`
+    : '';
+
+  const bodyHtml = `
+    <div style="display:flex;flex-direction:column;gap:18px;padding:4px 0;text-align:center;">
+      <div style="font-size:48px;line-height:1;">🏆</div>
+      <div>
+        <div style="font-size:22px;font-weight:700;color:#f5a623;margin-bottom:8px;">
+          Tebrikler! Hedefe Ulaştınız!
+        </div>
+        <p style="margin:0;font-size:14px;line-height:1.6;color:var(--text-secondary,#ccc);">
+          ${winMessage}
+        </p>
+      </div>
+      <div style="background:rgba(93,214,192,0.08);border:1px solid rgba(93,214,192,0.3);
+                  border-radius:10px;padding:16px;">
+        <div style="font-size:32px;font-weight:700;color:var(--accent,#5dd6c0);">
+          ${score.toLocaleString('tr-TR')} puan
+        </div>
+        <div style="font-size:12px;color:var(--text-muted,#aaa);margin-top:4px;">Final Skoru</div>
+        ${breakdownHtml}
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        <button id="won-leaderboard-btn" class="btn btn-primary btn-sm">
+          🏆 Leaderboard'a Gönder
+        </button>
+        <button id="won-freemode-btn" class="btn btn-success btn-sm">
+          ⏩ Serbest Devam Et
+        </button>
+        <button id="won-new-game-btn" class="btn btn-ghost btn-sm">
+          🎮 Yeni Oyuna Başla
+        </button>
+      </div>
+    </div>`;
+
+  showModal('🏆 Oyun Kazanıldı!', bodyHtml);
+
+  document.getElementById('won-leaderboard-btn')?.addEventListener('click', () => {
+    hideModal();
+    if (onSubmitScore) onSubmitScore();
+  });
+
+  document.getElementById('won-freemode-btn')?.addEventListener('click', () => {
+    if (typeof window._onEnableFreeMode === 'function') window._onEnableFreeMode();
+  });
+
+  document.getElementById('won-new-game-btn')?.addEventListener('click', () => {
+    hideModal();
+    showScreen('screen-menu');
+  });
+}
+

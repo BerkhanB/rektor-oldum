@@ -2,7 +2,7 @@
 
 - GitHub: https://github.com/prof-oguzergin/rektor-oldum (private)
 - Yayında: https://prof-oguzergin.github.io/rektor-oldum/
-- Durum: v0.4.50 — aktif geliştirme, oyuncu rapor akışı (Erdinç, Emir, Burak, AkaDemi, Yusuf, Fatih)
+- Durum: v0.4.64 — aktif geliştirme, oyuncu rapor akışı (Erdinç, Emir, Burak, AkaDemi, Yusuf, Fatih)
 - Dizin: C:\Users\Z GAMES\Yapay Zeka\university-tycoon
 
 ## Teknik
@@ -61,6 +61,15 @@ Tam liste: `js/changelog.js` (oyun içi "Yenilikler" panelinde de gösterilir, b
   - v0.4.48 (9 May 2026): Oyun sonu kararlılığı — Vakıf Kurtarma 40M borç loans[]'a dönüştürüldü (startingDebt migration + eski kayıt düzeltmesi); setState'te consecutiveLowStudentTurns/bankruptcyTurns sıfırlama; gameOver/gameWon sonrası "Sonraki Dönem" disabled + banner + menüye yönlendirme; enrollment_collapse mesajındaki %40 → %25 düzeltmesi (Issue #13, #16).
   - v0.4.49 (9 May 2026): Dönem ortası kayıt + BAP kalıcılığı — _persistState() yardımcısı eklendi, 20+ handler'da aksiyon bazlı autoSave; BAP çağrısı 3 dönem aktif kalıyor (expirationTurn), koşulsuz sıfırlama kaldırıldı; dış proje pendingProjectApplications state'ten okunuyor (Issue #14, meri-png).
   - v0.4.50 (9 May 2026): Müfredat zorluk kontrolü — her dersin zorluk seviyesi (1-5) Bölüm Ayrıntıları > Müfredat tablosunda slider ile ayarlanabilir; getCourseEffectiveDifficulty helper tüm başarısızlık/not/geçme hesaplamalarında etkin; eski kayıtlar curriculumOverrides:{} ile migrate edilir; trade-off info kutusu eklendi (R-Fatih Issue #8 Katman 1).
+  - v0.4.51 (16 May 2026): Kazanma ekranı + kayıt koruma — gameWon'da senaryo bazlı özel mesajlı kutlama modal'ı (final skor kırılımı + leaderboard butonu); updateTopBar gameWon banner'ı yeşil/altın; setState'te gameOver/gameWon sıfırlanmıyor artık (state'ten okunuyor); yüklenen kayıtta gameWon true ise otomatik kazanma modal'ı açılıyor (Issue #19 BerkhanB, Issue #23 byalperr).
+  - v0.4.55 (21 May 2026): Tutorial mobil tam ekran modal — @media (max-width: 768px) override, highlight efekti mobilde devre dışı, body scroll lock (tutorial-active class), "Atla / Sonraki" sticky footer (enesduran Issue #24).
+  - v0.4.56 (28 May 2026): Birim yöneticisi atama regresyonu — v0.4.53 birim unvanları sonrası main.js `_onAssignUnitManager` hâlâ eski `s.title === 'Müdür' || 'Müdür Yrd.'` arıyordu, yeni unvanlar (Öğrenci İşleri Müdürü vb.) tanınmıyordu → isUnitManagerTitle(unitId, title) kullanıldı; ayrıca hireAdminStaff sonuna _assignUnitManagers eklendi (yönetici seviyesi personel alınca otomatik atama). ui.js cache-bust 0.4.52'de takılıydı, 0.4.56'ya çekildi (EfekanSalman Issue #25).
+  - v0.4.57 (9 Haz 2026): Kontenjan exploit kapatıldı — applyQuotas (game.js) hiç doğrulama yapmıyordu, oyuncu DevTools'tan HTML max="500" kısıtlamasını bypass edip büyük sayılar girerek harçtan dev gelir elde edebiliyordu. Sunucu tarafı doğrulama: _calcDeptClassroomCapacity ile her bölüm için derslik kapasitesi × 1.1 (veya 800 absolute max) tavanı; NaN/negatif değerler 0'a klamplanır; aşırı toplam orantılı kırpılır. Skor güvenliği etkilendi (Esovarta73 Issue #26).
+  - v0.4.59 (10 Haz 2026): Sağlık bilimleri proje konuları (23 uzmanlık için TÜBİTAK/BAP tarzı template + obje havuzu), kadro panelinde bölüm gruplaması (details/summary collapse), yanıtsız ilan başvuruları 2 dönem sonra otomatik geri çekilme + dönem özeti mesajı, migrateState applicationDate backfill (kocamane18 Issue #27).
+  - v0.4.58 (9 Haz 2026): Serbest devam modu + erken uyarı sistemi — kazanma modalında "Serbest Devam Et" butonu; _state._internal.freeMode=true yapılır, _gameWon sıfırlanır, scenarioWinCondition kaldırılır; checkWinLose freeMode'da kazanma koşullarını atlar (kaybetme kontrolü devam eder); üst çubukta altın "Serbest Mod" rozeti; serbest moddayken liderlik tablosuna skor gönderilmez. Erken uyarılar: senaryo bitişine 2 dönem kala, 3 dönem ardışık açık, 3 dönem düşük öğrenci — summary.earlyWarnings dizisi aracılığıyla main.js gösterir. Senaryo kartlarında tahmini süre etiketi (Issue #26, Issue #27).
+  - v0.4.54 (21 May 2026): iOS Safari mobil kullanılabilirlik paketi — viewport-fit=cover, 100dvh, safe-area-inset env() tüm fixed elementlere uygulandı, tutorial overlay sticky footer, input otomatik zoom engeli (enesduran Issue #24).
+  - v0.4.53 (20 May 2026): Birim bazlı unvan havuzu - her idari birim için göreve özel 5 unvan tanımlandı (Ulaşım: Şoför/Kıdemli Şoför/Tamirci/Servis Sorumlusu/Ulaşım Müdürü vb.); ADMIN_UNITS.titles alanı; getUnitTitles/getUnitTitleSalary/isUnitManagerTitle helper'ları; eski kayıtlarda migration (Memur→birim unvanı); modal birim unvanlarını gösterir (EfekanSalman Issue #17).
+  - v0.4.52 (16 May 2026): BAP bildirim spam + Olaylar UI — renderResearchPanel'de .proj-decision-btn delegate listener her UI yenilemesinde birikiyordu; panel._projDecisionDelegateAttached flag ile tek seferlik ekleme sağlandı (Issue #22). Bu Dönem Olaylar'da description'sız event'ler "Olay" placeholder gösteriyordu; validEvents filtresi + "Bu dönemde önemli bir olay yaşanmadı." boş durum mesajı (Issue #21). Her ikisi EfekanSalman raporu.
 
 ## Aktif Oyuncu Raporcuları
 Erdinç (en yoğun), AkaDemi, Emir, Burak Gökalp, Yusuf Sertkaya, R-Fatih (Issue #7, #9), X, serhattural
@@ -94,3 +103,10 @@ Erdinç (en yoğun), AkaDemi, Emir, Burak Gökalp, Yusuf Sertkaya, R-Fatih (Issu
 - "Dashboard" → "Genel Bakış"
 - "Kampüs" → "Yerleşke"
 - Tüm arayüz Türkçe
+
+## Türkçe Yazım Kuralları (Claude için)
+- "detay/detaylı" YASAK → "ayrıntı/ayrıntılı"
+- Em-dash (---) YASAK → kısa çizgi (-) veya virgül
+- "çip/mikroçip" YASAK → "yonga"
+- "kontrol edilecek" yerine **"denetlenecek"** (daha doğru Türkçe)
+- "akademisyen" yerine "öğretim üyesi" (oyun içi gerekli yerlerde)

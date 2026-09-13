@@ -84,6 +84,7 @@ export const showAchievementNotification = (...args) => dispatch('showAchievemen
 export const renderRandomEventModal = (...args) => dispatch('renderRandomEventModal', ...args);
 export const showAccreditationModal = (...args) => dispatch('showAccreditationModal', ...args);
 export const showChangelogModal = (...args) => dispatch('showChangelogModal', ...args);
+export const showGameWonModal = (...args) => dispatch('showGameWonModal', ...args);
 
 // Bazı yardımcılar export olarak kalmalı (modül seviyesinde kullanılanlar)
 export const qs = (...args) => dispatch('qs', ...args);

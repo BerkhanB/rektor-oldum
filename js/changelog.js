@@ -132,8 +132,9 @@ export const CHANGELOG = [
   {
     version: '0.4.64',
     date: '2026-09-12',
-    title: 'Uluslararası Sıralama (THE 2024) Paneli Baştan Sona Yenilendi',
+    title: 'Açılış Sahnesi İyileştirmesi ve THE 2024 Sıralama Paneli',
     items: [
+      { type: 'fix', text: 'Yeni açılış ekranındaki saat kulesi tam menü panelinin arkasında kalıyordu. Kule sahnenin sol tarafına alındı, boyu uzatıldı ve kampüs silueti biraz yükseltildi; artık kule, kadranı ve tepesindeki fener açıkça görünüyor.' },
       { type: 'fix', text: 'Yinelenen tablolar kaldırıldı; Dünya Sıralaması (Top 50), Sıralama Komşularınız (±5) ve Türkiye Sıralaması sekmeli ve modern tek bir tabloda birleştirildi.' },
       { type: 'fix', text: 'Oyuncunun üniversitesi artık küresel sıralama tablosunda ve Türkiye liginde hak ettiği gerçek sırası ve parlayan [SEN] rozetiyle görüntüleniyor.' },
       { type: 'fix', text: 'Oyuncunun gerisinde kalan üniversitelerin sıra numaralarının güncellenmemesi (#2 oyuncu ve #2 Stanford çakışması) düzeltildi; rakiplerin sıraları dinamik olarak kaydırıldı.' },
@@ -143,8 +144,11 @@ export const CHANGELOG = [
   {
     version: '0.4.63',
     date: '2026-09-12',
-    title: 'THE Uluslararası ve Endüstri Puanı İyileştirmeleri',
+    title: 'Sinematik Kampüs Açılışı ve THE Uluslararası / Endüstri Puanı İyileştirmeleri',
     items: [
+      { type: 'feat', text: 'Ana menü yeniden tasarlandı. Arkada gece kampüsü sahnesi var: saat kulesi, fakülte blokları, ağaçlar ve sokak fenerleri dört ayrı katmanda çizildi. Fareyi gezdirdikçe katmanlar farklı hızlarda kayıyor (paralaks), pencere ışıkları ve kule feneri yanıp sönüyor. Sahne tamamen SVG ile çizildi, ek görsel dosya yüklenmiyor.' },
+      { type: 'feat', text: 'Menü butonları cam görünümlü bir panelde toplandı; Ayarlar, Bildir ve Yenilikler tek satıra alındı. Kayıtlı oyununuz varsa başlığın altında son kaydınız görünüyor: üniversite adı, yıl ve dönem.' },
+      { type: 'fix', text: 'Hareket azaltma tercihi açık olan cihazlarda menü animasyonları ve paralaks devre dışı kalıyor.' },
       { type: 'fix', text: 'Uluslararası puanı (International Outlook) artık yüksek üniversite saygınlığı, ABET/THEQA akreditasyonları, AB (EU) araştırma projeleri ve Konferans Merkezi seviyesini hesaba katıyor; 62 puanlık yapay tavan kaldırıldı.' },
       { type: 'fix', text: 'Endüstri puanında (Industry) Teknokent binası ve seviyesi, patent telif gelirleri, TTO anlaşmaları ve şirketleşme (spin-off) faaliyetleri tam olarak entegre edildi; 70 puanlık yapay tavan kaldırılarak 95-100 bandına yükselme imkânı sağlandı.' },
     ],
@@ -152,29 +156,115 @@ export const CHANGELOG = [
   {
     version: '0.4.62',
     date: '2026-09-12',
-    title: 'H-Index, Atıf ve Araştırma Puanı İyileştirmeleri',
+    title: 'Kapasite Durumu, Yükseltme Süresi, H-Index ve Atıf İyileştirmeleri',
     items: [
+      { type: 'feat', text: 'Bölümler sekmesindeki "Kapasite aşıldı / Dolmak üzere / Normal" durumunun üzerine fare ile gelince açıklama balonu çıkıyor: ne anlama geldiği, mevcut öğrenci/kapasite sayısı ve ne yapılması gerektiği yazıyor (kocamane18 Issue #29 madde 2).' },
+      { type: 'feat', text: 'Bina yükseltme butonunda artık yükseltmenin kaç dönem süreceği de gösteriliyor (örneğin "Düzey 2\'ye Yükselt (5,0M ₺ · 2 dönem)"). Oyuncu yükseltmeye başlamadan süreyi görebilir (kocamane18 Issue #29 madde 4).' },
       { type: 'fix', text: 'H-Index ve toplam atıf hesaplama sistemi düzeltildi; akademik kadronun yayınları üzerinden H-Index artık doğru şekilde hesaplanıyor ve dönemler ilerledikçe atıf birikimi gerçekleşiyor.' },
       { type: 'fix', text: 'THE Dünya Sıralamasında Araştırma Ortamı (Research Environment) ve ulusal sıralamadaki araştırma puanının H-indeks ve aktif proje bağlantıları düzeltildi; puanlar hak edilen seviyeye yükseltildi.' },
       { type: 'feat', text: 'Araştırma panelindeki "Bölüm Araştırma Puanları" dinamik hale getirildi; statik 5 üzerinden potansiyel yerine her bölümün hoca gücü, yayın ve projelerine dayalı 100 üzerinden canlı araştırma performansı gösteriliyor.' },
     ],
   },
   {
+    version: '0.4.61',
+    date: '2026-06-18',
+    title: 'Mezun sayısı tutarsızlığı düzeltildi',
+    items: [
+      { type: 'fix', text: 'Genel Bakış sekmesindeki "Mezun" sayısı, Mezunlar sekmesindeki toplam mezun sayısından farklı görünüyordu (örneğin Genel Bakış 4, Mezunlar 243). Genel Bakış yanlışlıkla yalnızca yıldız mezunları sayıyordu; artık her iki ekran da toplam mezun sayısını aynı kaynaktan gösteriyor (kocamane18 Issue #29).' },
+    ],
+  },
+  {
     version: '0.4.60',
     date: '2026-09-12',
-    title: 'Toplu Kadro İlanı Verme Sistemi',
+    title: 'Toplu Kadro İlanı ve Yerleşke Kapasite Çift Sayım Düzeltmesi',
     items: [
       { type: 'feat', text: 'Kadro İlanı Ver ekranına Tek Bölüm / Toplu İlan modu eklendi. Aynı unvan, maaş, araştırma fonu ve lab imkanlarıyla birden fazla bölüm seçilerek tek tıkla toplu ilan verilebiliyor.' },
+      { type: 'fix', text: 'Yerleşke Özeti kartlarında derslik ve laboratuvar kullanımı kapasiteyi aşan saçma değerler gösteriyordu ("45/24 kullanımda"). Bir bölüm birden fazla binaya atandığında o bölümün ihtiyacı her bina için ayrı sayılıyordu. Artık her bölüm yalnızca bir kez sayılıyor, kullanım gerçek toplam ihtiyacı yansıtıyor (sezer-zengin Issue #28).' },
     ],
   },
   {
     version: '0.4.59',
     date: '2026-09-12',
-    title: 'Yerleşke Akordeon Düzeni ve THE Sıralama İyileştirmeleri',
+    title: 'Sağlık Bilimleri Konuları, Kadro Gruplama ve Yerleşke Akordeon Düzeni',
     items: [
       { type: 'feat', text: 'Yerleşke sekmesindeki tüm binalar ve inşaat seçenekleri kategori bazlı açılır-kapanır akordeon listesi haline getirildi. Her bina tipine tıklandığında mevcut binalar ve en altta "Bir Tane Daha İnşa Et" seçeneği tek bir akışta listeleniyor.' },
+      { type: 'feat', text: 'Tıp, Diş Hekimliği, Eczacılık, Hemşirelik ve Biyomedikal Mühendisliği uzmanlıklarına özel araştırma proje konuları eklendi (23 uzmanlık alanı için gerçekçi TÜBİTAK/BAP tarzı konu havuzu). Diş hekimliği araştırma konularının alakasız olduğuna dair geri bildirim giderildi (kocamane18 Issue #27).' },
+      { type: 'feat', text: 'Kadro panelinde hocalar artık bölümlere göre gruplanıyor. Her grubun başlığında bölüm ikonu, adı ve hoca sayısı görünür; başlığa tıklayarak grup açılıp kapatılabilir (kocamane18 Issue #27).' },
+      { type: 'fix', text: 'Yanıt verilmeyen kadro başvuruları 2 dönem sonra otomatik geri çekiliyor; başvuru listesi artık sonsuza dek birikiyor. Kaç başvurunun geri çekildiği dönem özetinde gösterilir (kocamane18 Issue #27).' },
       { type: 'fix', text: 'Endüstri (Industry) puanında TTO durumu ve özel sektör (isPrivateSector) projeleri düzeltildi; TTO kurulması, seviye yükseltilmesi ve sanayi projeleri artık Endüstri puanına tam yansıyor.' },
       { type: 'fix', text: 'Uluslararası (International) puanında prestijli yurt dışı doktoralı hocalar ve Uluslararası İlişkiler Ofisi idari birimi geliştirmeleri hesaba katılarak skorun doğru yükselmesi sağlandı.' },
+    ],
+  },
+  {
+    version: '0.4.58',
+    date: '2026-06-09',
+    title: 'Serbest devam modu ve erken uyarı sistemi',
+    items: [
+      { type: 'feat', text: 'Oyunu kazandığınızda artık "Serbest Devam Et" seçeneği var. Senaryonun zorunlu hedefi kaldırılır, üniversitenizi sınırsızca büyütmeye devam edebilirsiniz. Üst çubukta küçük "Serbest Mod" rozeti görünür. Serbest moddayken liderlik tablosuna yeni skor gönderilmez (puan güvenliği için) (Esovarta73 Issue #26, kocamane18 Issue #27).' },
+      { type: 'feat', text: 'Senaryo bitişine 2 dönem kala "Senaryo hedefi 2 dönem sonra denetlenecek" uyarısı; bütçe 3 dönemdir negatifse iflas uyarısı; öğrenci sayısı kapasitenin %25 altında 3 dönemdir ise kapanma uyarısı gösterilir. Oyunun ne zaman ve neden bitebileceği önceden bildirilir (kocamane18 Issue #27).' },
+      { type: 'feat', text: 'Yeni oyun kurulumunda senaryo kartlarında tahmini oyun süresi (dönem ve yıl olarak) gösteriliyor.' },
+    ],
+  },
+  {
+    version: '0.4.57',
+    date: '2026-06-09',
+    title: 'Kontenjan exploit kapatıldı',
+    items: [
+      { type: 'security', text: 'Kontenjan ekranında çok büyük sayılar girip harçtan dev gelir elde etme açığı kapatıldı. Sunucu tarafı doğrulama eklendi: her bölüm için kontenjan, atanmış derslik kapasitesinin %110\'u veya 800 (hangisi düşükse) ile sınırlı. Negatif veya geçersiz değerler 0\'a, aşırı toplamlar kapasiteye orantılı olarak kırpılıyor (Esovarta73 Issue #26).' },
+    ],
+  },
+  {
+    version: '0.4.56',
+    date: '2026-05-28',
+    title: 'Birim yöneticisi atama düzeltmesi',
+    items: [
+      { type: 'fix', text: 'Birim bazlı unvanlar gelince (v0.4.53) yönetici atama kontrolü eski "Müdür / Müdür Yrd." adlarını arıyordu; "Öğrenci İşleri Müdürü", "Güvenlik Müdürü" gibi yeni unvanlar tanınmıyor, "yönetici bulunmuyor" hatası çıkıyordu. Artık her birimin en üst iki unvanı yönetici sayılır (EfekanSalman Issue #25).' },
+      { type: 'fix', text: 'Yönetici seviyesinde bir personel işe alındığında birime otomatik yönetici atanır; önceden dönem geçişine kadar "yönetici atanmamış" cezası devam ediyordu.' },
+    ],
+  },
+  {
+    version: '0.4.55',
+    date: '2026-05-21',
+    title: 'Tutorial mobil tam ekran modal',
+    items: [
+      { type: 'fix', text: 'Rehber penceresi mobilde artık tam ekran modal olarak açılır. Stat kartlarıyla iç içe geçme sorunu giderildi; mobil arka plan tamamen karartılır, "Atla / Sonraki" butonları her zaman ekranın altında sabit görünür (enesduran Issue #24).' },
+      { type: 'fix', text: 'Rehber açıkken arka plandaki sayfa kayması engellendi (body scroll lock). iOS Safari\'de tutorial aktifken sayfa düzgün sabit kalır.' },
+    ],
+  },
+  {
+    version: '0.4.54',
+    date: '2026-05-21',
+    title: 'iOS Safari mobil kullanılabilirlik',
+    items: [
+      { type: 'fix', text: 'iOS Safari\'de oyun artık düzgün oynanabilir. Eksik viewport-fit=cover meta tag eklendi, 100dvh dinamik viewport yüksekliği kullanılıyor, safe-area-inset env değerleri uygulandı. Top bar (Sonraki Dönem dahil tüm aksiyon butonları) artık tüm cihazlarda görünür (enesduran Issue #24).' },
+      { type: 'fix', text: 'Rehber penceresinin "Atla" ve "Sonraki" butonları artık her zaman ekranın altında sabit görünür, mobilde uzun içerikli adımlarda butona erişim sorunu giderildi. Pencere mobil ekrana uyumlu boyutlandırıldı.' },
+      { type: 'fix', text: 'Mobilde form alanlarına (input, select, textarea) dokunulduğunda iOS Safari\'nin otomatik yakınlaştırma davranışı engellendi (minimum font boyutu 16px uygulandı).' },
+    ],
+  },
+  {
+    version: '0.4.53',
+    date: '2026-05-20',
+    title: 'Birim bazlı unvan havuzu',
+    items: [
+      { type: 'feat', text: 'Her idari birim artık göreve özel unvan havuzuna sahip. Ulaşım\'da "Şoför" ve "Tamirci", Yemekhane\'de "Aşçı" ve "Baş Aşçı", Güvenlik\'te "Güvenlik Görevlisi" ve "Vardiya Amiri" gibi gerçekçi unvanlar görünür. Personel alım modalında birime göre doğru unvanlar listelenir, maaş baremleri her unvan için ayrı (EfekanSalman Issue #17).' },
+      { type: 'fix', text: 'Eski kayıtlardaki ortak rütbeler (Memur, Uzman, Şef, Müdür Yrd., Müdür) yüklendiklerinde birime özel unvanlara otomatik dönüştürülür - örneğin Güvenlik biriminde "Şef" artık "Vardiya Amiri" olarak görünür.' },
+    ],
+  },
+  {
+    version: '0.4.52',
+    date: '2026-05-16',
+    title: 'BAP bildirim spam düzeltmesi ve Olaylar UI iyileştirmesi',
+    items: [
+      { type: 'fix', text: 'BAP başvurusu reddedildiğinde her bölüm için ayrı bildirim çıkıyordu (10+ tekrar). Araştırma panelindeki event listener\'lar her UI yenilemesinde birikiyordu; artık dönem başına tek toplu bildirim gösterilir (EfekanSalman Issue #22).' },
+      { type: 'fix', text: 'Bu Dönem Olaylar listesinde açıklaması olmayan girişler "Olay" placeholder metni olarak görünüyordu. Artık yalnızca gerçek açıklaması olan olaylar listelenir; hiç olay yoksa "Bu dönemde önemli bir olay yaşanmadı." mesajı gösterilir (EfekanSalman Issue #21).' },
+    ],
+  },
+  {
+    version: '0.4.51',
+    date: '2026-05-16',
+    title: 'Kazanma ekranı ve kayıt koruma',
+    items: [
+      { type: 'fix', text: 'Oyun kazanıldığında artık senaryo bazlı özel mesaj içeren kutlama ekranı çıkıyor. Final skor kırılımı ve leaderboard\'a gönderme butonu da eklendi. Önceden sadece "Oyun bitti" bildirimi görünüyordu (BerkhanB Issue #19, byalperr Issue #23).' },
     ],
   },
   {

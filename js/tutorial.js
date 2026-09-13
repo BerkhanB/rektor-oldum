@@ -117,6 +117,9 @@ function _removeHighlights() {
 
 function _applyHighlight(selector) {
   if (!selector) return;
+  // Mobilde highlight efekti devre dışı — CSS override ile de kapatılıyor,
+  // ama JS tarafında da erken çıkış yaparak tutarlılık sağlanıyor.
+  if (window.matchMedia('(max-width: 768px)').matches) return;
   const el = _qs(selector);
   if (el) {
     el.classList.add('tutorial-highlight');
@@ -162,6 +165,9 @@ function _showStep(index) {
     return;
   }
 
+  // Body scroll kilidi aktif — iOS Safari'de arka plan kaymaz
+  document.body.classList.add('tutorial-active');
+
   _currentStep = index;
   const step   = TUTORIAL_STEPS[index];
   const total  = TUTORIAL_STEPS.length;
@@ -175,12 +181,14 @@ function _showStep(index) {
   const nextLabel = isLast ? 'Oyuna Başla →' : 'Sonraki →';
 
   _modalEl.innerHTML = `
-    <div class="tutorial-header">
-      <span class="tutorial-step-counter">${index + 1} / ${total}</span>
-      <button class="tutorial-skip-btn" id="tutorial-skip">Atla</button>
+    <div class="tutorial-modal-body">
+      <div class="tutorial-header">
+        <span class="tutorial-step-counter">${index + 1} / ${total}</span>
+        <button class="tutorial-skip-btn" id="tutorial-skip">Atla</button>
+      </div>
+      <h3 class="tutorial-title">${step.title}</h3>
+      <div class="tutorial-content">${step.content}</div>
     </div>
-    <h3 class="tutorial-title">${step.title}</h3>
-    <div class="tutorial-content">${step.content}</div>
     <div class="tutorial-footer">
       <button class="tutorial-next-btn btn btn-primary" id="tutorial-next">${nextLabel}</button>
     </div>
@@ -219,6 +227,8 @@ function _showStep(index) {
 function _finishTutorial() {
   localStorage.setItem(TUTORIAL_DONE_KEY, '1');
   _destroyOverlay();
+  // Body scroll kilidi kaldır
+  document.body.classList.remove('tutorial-active');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

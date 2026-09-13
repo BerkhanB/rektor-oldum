@@ -8,7 +8,7 @@ console.log('[main] main.js modülü yükleniyor...');
 // IMPORT
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { initGame, nextTurn, getState, setState, applyDecision, assignCourses, applyQuotas, assignDeptHead, reassignFacultyToDept, generateAdminCandidates, hireAdminStaff, upgradeAdminUnit, promoteAdminStaff, autoPromoteAdminStaff, fireAdminStaff, updateAdminStaffSalary, assignUnitManager, RANDOM_EVENTS, ACHIEVEMENTS, getAchievementStats, checkAchievements, checkAndUpdateAchievements, organizeAlumniEvent, applyRandomEventChoice, ACCREDITATION_BODIES, applyForAccreditation, checkAccreditationRequirements, establishTTO, upgradeTTO, acceptDeal, rejectDeal, foundClub, upgradeClub, dissolveClub, CLUB_TYPES, CLUB_CATEGORIES, SPORTS, foundTeam, upgradeTeam, dissolveTeam, setCourseDifficulty, continueInSandboxMode } from './game.js?v=0.4.75';
+import { initGame, nextTurn, getState, setState, applyDecision, assignCourses, applyQuotas, assignDeptHead, reassignFacultyToDept, generateAdminCandidates, hireAdminStaff, upgradeAdminUnit, promoteAdminStaff, autoPromoteAdminStaff, fireAdminStaff, updateAdminStaffSalary, assignUnitManager, RANDOM_EVENTS, ACHIEVEMENTS, getAchievementStats, checkAchievements, checkAndUpdateAchievements, organizeAlumniEvent, applyRandomEventChoice, ACCREDITATION_BODIES, applyForAccreditation, checkAccreditationRequirements, establishTTO, upgradeTTO, acceptDeal, rejectDeal, foundClub, upgradeClub, dissolveClub, CLUB_TYPES, CLUB_CATEGORIES, SPORTS, foundTeam, upgradeTeam, dissolveTeam, setCourseDifficulty, getUnitTitles, getUnitTitleSalary, isUnitManagerTitle, enableFreeMode, continueInSandboxMode } from './game.js?v=0.4.75';
 import { ADMIN_TITLES, ADMIN_UNITS } from './data.js?v=0.4.75';
 
 import {
@@ -48,6 +48,7 @@ import {
   renderLeaderboardPanel,
   renderInternationalRankingPanel,
   showChangelogModal,
+  showGameWonModal,
   initSafeModalBackdropDismiss,
   el,
   on,
@@ -55,9 +56,9 @@ import {
 
 import { CHANGELOG, hasUnseenChanges, setLastSeenVersion } from './changelog.js?v=0.4.75';
 
-import { saveGame, loadGame, autoSave, getSaveSlots, deleteSave, exportSave, importSave, sanitizeForSave } from './save.js?v=0.4.28';
+import { saveGame, loadGame, autoSave, getSaveSlots, deleteSave, exportSave, importSave, sanitizeForSave } from './save.js?v=0.4.75';
 import { calculateScore, scoreBreakdown, submitScore, getTopScores, initFirebase, isLeaderboardUnavailable, saveLocalScore, getLocalScores } from './leaderboard.js?v=0.4.75';
-import { showTutorialIfNeeded, replayTutorial } from './tutorial.js?v=0.4.24';
+import { showTutorialIfNeeded, replayTutorial } from './tutorial.js?v=0.4.75';
 import { initAudio, playSound, toggleMute, isMuted, startMusic, stopMusic, setMusicVolume, setSFXVolume, getAudioSettings } from './audio.js?v=0.4.24';
 
 import { generateTransferMarket, renderFacultyAvatar, calculateOverallRating, getFacultyRatingTrend } from './faculty.js?v=0.4.52';
@@ -212,6 +213,9 @@ function init() {
   // Klavye kısayolları
   _bindKeyboardShortcuts();
 
+  // Açılış sahnesi: yıldızlar + paralaks (v0.4.63)
+  _initMenuScene();
+
   // Sayfa yüklendiğinde kayıt varlığını kontrol et
   _checkSaveOnLoad();
 
@@ -222,6 +226,47 @@ function init() {
   initFirebase().catch(err => console.warn('[main] Firebase önyükleme başarısız (önemli değil):', err.message));
 
   console.log('[main] Başlangıç tamamlandı.');
+}
+
+/**
+ * Açılış ekranı sahnesi: rastgele yıldızlar + fare ile paralaks.
+ * Hareket azaltma tercihi açıksa paralaks devre dışı kalır.
+ */
+function _initMenuScene() {
+  const starBox = el('menu-stars');
+  if (starBox && !starBox.childElementCount) {
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < 48; i++) {
+      const s = document.createElement('i');
+      s.textContent = '✦';
+      s.style.left = (Math.random() * 100) + '%';
+      s.style.top  = (Math.random() * 62) + '%';
+      s.style.fontSize = (4 + Math.random() * 7) + 'px';
+      s.style.animationDelay = (Math.random() * 4) + 's';
+      frag.appendChild(s);
+    }
+    starBox.appendChild(frag);
+  }
+
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) return;
+
+  const layers = Array.from(document.querySelectorAll('.menu-layer'));
+  if (layers.length === 0) return;
+  let ticking = false;
+  window.addEventListener('mousemove', (e) => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const dx = (e.clientX / window.innerWidth) - 0.5;
+      const dy = (e.clientY / window.innerHeight) - 0.5;
+      for (const l of layers) {
+        const d = Number(l.dataset.depth) || 0;
+        l.style.transform = `translate(${dx * d}px, ${dy * d * 0.35}px)`;
+      }
+      ticking = false;
+    });
+  }, { passive: true });
 }
 
 /**
@@ -238,6 +283,21 @@ function _checkSaveOnLoad() {
   if (loadBtn) {
     loadBtn.classList.add('btn-has-save');
     loadBtn.innerHTML = '<span class="btn-icon">💾</span> Kayıtlı Oyunu Yükle';
+  }
+
+  // Açılış ekranında son kaydı göster (gerçek veri; kayıt yoksa gizli kalır)
+  const newest = slots
+    .filter(sl => !sl.isEmpty)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
+  const strip = el('menu-lastsave');
+  if (strip && newest) {
+    const uni  = newest.uniName || '—';
+    const yr   = newest.year ?? '—';
+    const trn  = newest.turn ?? '—';
+    strip.innerHTML = `💾 Son kayıt: <b>${uni}</b>`
+      + `<span class="ls-sep">·</span>${yr}. yıl`
+      + `<span class="ls-sep">·</span>${trn}. dönem`;
+    strip.classList.remove('hidden');
   }
 
   // Kısa bildirim — bildirim sistemi henüz DOM'a bağlanmadıysa gecikmeli göster
@@ -623,10 +683,38 @@ function _startGameWithState(state) {
     }
   };
 
+  // Serbest mod: kazanma modal'ından "Serbest Devam Et" butonuyla çağrılır (Issue #26)
+  window._onEnableFreeMode = () => {
+    const result = enableFreeMode();
+    if (result.success) {
+      hideModal();
+      showNotification('Serbest mod aktif. Senaryo hedefi kaldırıldı, oyununuza devam edebilirsiniz.', 'success', 5000);
+      _persistState();
+      refreshGameUI();
+    }
+  };
+
   refreshGameUI();
   // Ambient müziği başlat (mute değilse)
   if (!isMuted()) startMusic();
   console.log('[main] Oyun ekranı hazır. Dönem:', state?.meta?.turn, '| Bütçe:', state?.university?.budget);
+
+  // Yüklenen kayıtta oyun kazanılmışsa veya bitmişse kullanıcıya bildir
+  if (state?._internal?.gameWon) {
+    setTimeout(() => {
+      showGameWonModal(
+        state,
+        null,
+        calculateScore,
+        scoreBreakdown,
+        () => _showLeaderboardSubmitModal(true),
+      );
+    }, 600);
+  } else if (state?._internal?.gameOver) {
+    setTimeout(() => {
+      showNotification('Bu kayıt oyunun bittiği bir noktadan. Yeni oyun başlatabilirsiniz.', 'info', 6000);
+    }, 600);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -963,7 +1051,7 @@ function _runTurnAfterQuotas() {
 
   // Defensive: backend "Oyun bitti." dönerse boş özet modal'ı açma
   // (Emir raporu — _onNextTurn'de zaten erken çıkış var, bu son güvenlik ağı).
-  if (summary?.gameOver || summary?.gameWon || state?._internal?.gameOver || state?._internal?.gameWon) {
+  if (summary?.gameOver || summary?.gameWon || state?._internal?.gameOver || state?._internal?.gameWon || /zaten bitti/i.test(summary?.message || '')) {
     const msg = summary?.message || state?._internal?.endMessage || (state?._internal?.gameWon ? '🏆 Senaryo Hedefine Ulaşıldı!' : 'Oyun bitti.');
     showNotification(
       `${msg} Skorunu gönderebilir veya devam edebilirsin.`,
@@ -1042,8 +1130,37 @@ function _continueAfterEvents(summary, state) {
   refreshGameUI();
   console.log(`[main] Tur tamamlandı → Tur ${state?.meta?.turn}`);
 
-  // Oyun bittiyse (gameOver veya gameWon) skor gönderme modal'ını tetikle
-  if (summary?.gameOver || summary?.gameWon) {
+  // Erken uyarılar (senaryo bitişi, iflas riski, düşük öğrenci)
+  if (Array.isArray(summary?.earlyWarnings)) {
+    summary.earlyWarnings.forEach(key => {
+      if (key.startsWith('scenario_end:')) {
+        const goal = key.slice('scenario_end:'.length);
+        showNotification(`⏱️ Senaryo hedefi 2 dönem sonra denetlenecek: ${goal}`, 'warning', 6000);
+      } else if (key === 'bankruptcy_risk') {
+        showNotification('⚠️ Bütçeniz 3 dönemdir negatif. Kredi ödemelerinde gecikme sürerse iflas riski var.', 'warning', 6000);
+      } else if (key === 'low_student') {
+        showNotification('⚠️ Öğrenci sayısı kapasitenin %25 altında 3 dönemdir. 6 döneme tamamlanırsa kapanma riski.', 'warning', 6000);
+      }
+    });
+  }
+
+  // Oyun kazanıldıysa kutlama ekranını göster
+  if (summary?.gameWon) {
+    setTimeout(() => {
+      const winReason = summary?.reason || null;
+      showGameWonModal(
+        state,
+        winReason,
+        calculateScore,
+        scoreBreakdown,
+        () => _showLeaderboardSubmitModal(true),
+      );
+    }, 800);
+    return;
+  }
+
+  // Oyun bittiyse (gameOver) skor gönderme modal'ını tetikle
+  if (summary?.gameOver) {
     setTimeout(() => _showLeaderboardSubmitModal(true), 1200);
   }
 }
@@ -1060,6 +1177,12 @@ function _showLeaderboardSubmitModal(isGameOver = false) {
   const state = getState();
   if (!state) {
     showNotification('Önce bir oyun başlatmalısın.', 'warning');
+    return;
+  }
+
+  // Serbest moddayken liderlik tablosuna skor gönderilmez (puan güvenliği)
+  if (state._internal?.freeMode) {
+    showNotification('Serbest modda liderlik tablosuna skor gönderilmez.', 'info', 4000);
     return;
   }
 
@@ -2593,14 +2716,14 @@ window._onAdminTitleSelectionChange = (idx, chosenTitle) => {
   const cache = window._adminCandidateCache || [];
   const c = cache[idx];
   if (!c) return;
-  const TITLE_ORDER_H = ['Memur', 'Uzman', 'Şef', 'Müdür Yrd.', 'Müdür'];
-  const sugT   = c.suggestedTitle || 'Uzman';
-  const sugIdx = TITLE_ORDER_H.indexOf(sugT);
-  const choIdx = TITLE_ORDER_H.indexOf(chosenTitle);
+  const unitTitles = getUnitTitles(c.unit);
+  const sugT   = c.suggestedTitle || unitTitles[1] || unitTitles[0] || 'Uzman';
+  const sugIdx = unitTitles.indexOf(sugT);
+  const choIdx = unitTitles.indexOf(chosenTitle);
 
   const warnEl   = document.getElementById(`admin-hire-warning-${idx}`);
   const salaryEl = document.getElementById(`admin-hire-salary-${idx}`);
-  const bar      = ADMIN_TITLES[chosenTitle] || { min: 14000, max: 50000 };
+  const bar      = getUnitTitleSalary(c.unit, chosenTitle);
   const bareMid  = Math.round((bar.min + bar.max) / 2);
 
   if (!warnEl) return;
@@ -2699,10 +2822,10 @@ window._onAdjustAdminSalary = function(staffId) {
 window._onAssignUnitManager = function(unitId) {
   const state = getState();
   const eligible = (state.adminStaff || []).filter(
-    s => s.unit === unitId && (s.title === 'Müdür' || s.title === 'Müdür Yrd.')
+    s => s.unit === unitId && isUnitManagerTitle(unitId, s.title)
   );
   if (eligible.length === 0) {
-    showNotification('Bu birimde Müdür veya Müdür Yrd. bulunmuyor.', 'warning');
+    showNotification('Bu birimde yönetici seviyesinde personel bulunmuyor (en üst iki unvan).', 'warning');
     return;
   }
   const options = eligible.map((s, i) => `${i + 1}. ${s.name} (${s.title}, Liderlik: ${s.leadership})`).join('\n');

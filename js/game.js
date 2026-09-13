@@ -32,7 +32,7 @@ import {
   ACCREDITATION_BODIES,
   SCENARIOS,
   BANKS,
-} from './data.js?v=0.4.39';
+} from './data.js?v=0.4.53';
 
 import { calculateEconomy, applyBudget, calculateLoanPayment, processLoanPayments } from './economy.js?v=0.4.24';
 import { generateInitialFaculty, updateAllFacultyHappiness, generateApplicants, generateFaculty, getSalaryRange, calculateOverallRating, getFacultyRatingTrend } from './faculty.js?v=0.4.52';
@@ -245,6 +245,71 @@ function calculateBuildingUsage(building, state) {
 }
 
 /**
+ * Tüm yerleşke için kullanım/kapasite özetini hesaplar (Yerleşke Özeti kartları).
+ * calculateBuildingUsage bina başına çalıştığından, bir bölüm birden fazla binaya
+ * atanınca özet toplamında çift sayım oluyordu (Issue #28: "45/24 kullanımda").
+ * Bu fonksiyon her bölümü tam olarak bir kez sayar, kapasiteyi binalardan toplar.
+ * @param {object} state — Oyun durumu
+ * @returns {{ totalClassrooms, usedClassrooms, totalOffices, usedOffices, totalLabs, usedLabs, totalBeds }}
+ */
+export function calculateCampusUsageSummary(state) {
+  const completed = (state.buildings || []).filter(b => b.isCompleted);
+
+  let totalClassrooms = 0, totalOffices = 0, totalLabs = 0, totalBeds = 0;
+  let csWeightedSum = 0, csCount = 0;
+  for (const b of completed) {
+    const cap = b.currentCapacity || {};
+    totalClassrooms += cap.classrooms || 0;
+    totalOffices    += cap.offices    || 0;
+    totalLabs       += cap.labs       || 0;
+    totalBeds       += cap.beds       || 0;
+    // Ağırlıklı ortalama derslik boyutu (düzeye göre değişebilir)
+    if ((cap.classrooms || 0) > 0) {
+      const catalog = BUILDINGS[b.type];
+      const byLvl   = catalog?.classroomSizeByLevel;
+      const lvl     = b.level || 1;
+      const sz      = byLvl ? (byLvl[lvl] ?? byLvl[1] ?? 40) : (catalog?.classroomSize ?? 40);
+      csWeightedSum += sz * (cap.classrooms || 0);
+      csCount       += (cap.classrooms || 0);
+    }
+  }
+  const avgClassroomSize = csCount > 0 ? (csWeightedSum / csCount) : 40;
+
+  // Kullanım: her bölüm tam olarak bir kez sayılır (çift sayım önlenir)
+  let usedClassrooms = 0, usedLabs = 0;
+  let totalProf = 0, totalDr = 0, totalArgo = 0;
+  for (const dept of (state.departments || [])) {
+    if (dept.isOpen === false) continue;
+    const dd = state.students?.byDepartment?.[dept.id];
+    const studentCount = dd
+      ? ((dd.year1?.count || 0) + (dd.year2?.count || 0) + (dd.year3?.count || 0) + (dd.year4?.count || 0))
+      : 0;
+    usedClassrooms += avgClassroomSize > 0 ? Math.ceil(studentCount / avgClassroomSize) : 0;
+    if (dept.category === 'muhendislik' || dept.category === 'fen') {
+      usedLabs += Math.ceil(studentCount / 60);
+    }
+    const df = (state.faculty || []).filter(f => (f.department || f.departmentId) === dept.id);
+    totalProf += df.filter(f => ['profesor', 'docent'].includes(f.title)).length;
+    totalDr   += df.filter(f => f.title === 'dr_ogr_uyesi').length;
+    totalArgo += df.filter(f => f.title === 'argö').length;
+  }
+
+  // Akıllı ofis ataması (global): boş ofis varsa 1/kişi, yetmezse Dr 2/ofis, ArGö 3/ofis
+  let usedOffices = totalProf;
+  let remaining = Math.max(0, totalOffices - usedOffices);
+  if (totalDr > 0) {
+    if (remaining >= totalDr) { usedOffices += totalDr; remaining -= totalDr; }
+    else { usedOffices += remaining + Math.ceil((totalDr - remaining) / 2); remaining = 0; }
+  }
+  if (totalArgo > 0) {
+    if (remaining >= totalArgo) { usedOffices += totalArgo; remaining -= totalArgo; }
+    else { usedOffices += remaining + Math.ceil((totalArgo - remaining) / 3); remaining = 0; }
+  }
+
+  return { totalClassrooms, usedClassrooms, totalOffices, usedOffices, totalLabs, usedLabs, totalBeds };
+}
+
+/**
  * Lab binalarına atanan bölümlerin labScore değerini yeniden hesaplar.
  * Bir bölüme atanmış her lab binası düzey × 25 puan katkı sağlar (maks 100).
  */
@@ -435,14 +500,13 @@ function _randomAdminName() {
   return `${first} ${last}`;
 }
 
-// Deneyim seviyesine göre önerilen rütbeyi hesapla
-function _suggestTitleFromStats(experienceLevel, leadership, totalExperience) {
-  if (experienceLevel === 'junior') return 'Memur';
-  if (experienceLevel === 'mid') {
-    return leadership >= 60 ? 'Şef' : 'Uzman';
-  }
+// Deneyim seviyesine göre önerilen rütbeyi hesapla (birim bazlı)
+function _suggestTitleFromStats(unitId, experienceLevel, leadership, totalExperience) {
+  const titles = getUnitTitles(unitId);
+  if (experienceLevel === 'junior') return titles[0];
+  if (experienceLevel === 'mid') return leadership >= 60 ? titles[2] : titles[1];
   // senior
-  return (leadership >= 75 && totalExperience >= 18) ? 'Müdür' : 'Müdür Yrd.';
+  return (leadership >= 75 && totalExperience >= 18) ? titles[4] : titles[3];
 }
 
 // Personel üret. opts: { title } (eski yol) veya { experienceLevel } (yeni aday yolu)
@@ -471,13 +535,13 @@ function generateAdminStaffMember(unitId, opts) {
 
   // Eğer title verilmemişse (aday yolu): suggestedTitle hesapla, title null bırak
   const resolvedSuggestedTitle = experienceLevel
-    ? _suggestTitleFromStats(experienceLevel, leadership, totalExperience)
+    ? _suggestTitleFromStats(unitId, experienceLevel, leadership, totalExperience)
     : null;
   const resolvedTitle = title || null;
 
   // Maaş beklentisi: aday için suggestedTitle baremi üzerinden, sabit için kendi baremi
-  const baremeTitle = resolvedTitle || resolvedSuggestedTitle || 'Uzman';
-  const salaryRange = ADMIN_TITLES[baremeTitle] || { min: 14_000, max: 18_000 };
+  const baremeTitle = resolvedTitle || resolvedSuggestedTitle || getUnitTitles(unitId)[1] || 'Uzman';
+  const salaryRange = getUnitTitleSalary(unitId, baremeTitle);
   const bareMid     = Math.round((salaryRange.min + salaryRange.max) / 2);
   const salaryExpectation = Math.round(bareMid * (0.95 + Math.random() * 0.15)); // %95–110
   const salary = randInt(salaryRange.min, salaryRange.max);
@@ -653,7 +717,7 @@ function _applyAdminBuildingBonuses(adminUnits, buildings) {
 
 const ADMIN_TITLE_ORDER = ['Memur', 'Uzman', 'Şef', 'Müdür Yrd.', 'Müdür'];
 
-/** Unvanın bir üstünü döndürür (yoksa null) */
+/** Unvanın bir üstünü döndürür (yoksa null) — legacy fallback */
 function _nextAdminTitle(title) {
   const idx = ADMIN_TITLE_ORDER.indexOf(title);
   return idx >= 0 && idx < ADMIN_TITLE_ORDER.length - 1
@@ -661,32 +725,63 @@ function _nextAdminTitle(title) {
     : null;
 }
 
-/** Maaş barem orta noktasını döndürür */
-function _titleMidpoint(title) {
-  const range = ADMIN_TITLES[title] || { min: 14_000, max: 18_000 };
+/** Maaş barem orta noktasını döndürür — birim bazlı veya legacy */
+function _titleMidpoint(title, unitId) {
+  const range = unitId ? getUnitTitleSalary(unitId, title) : (ADMIN_TITLES[title] || { min: 14_000, max: 18_000 });
   return Math.round((range.min + range.max) / 2);
+}
+
+/** Birimin unvan listesini döndürür (alt→üst sırada). */
+export function getUnitTitles(unitId) {
+  return ADMIN_UNITS[unitId]?.titles?.map(t => t.name) || ADMIN_TITLE_ORDER;
+}
+
+/** Unvanın maaş baremini birim bazlı döndürür. */
+export function getUnitTitleSalary(unitId, title) {
+  const t = ADMIN_UNITS[unitId]?.titles?.find(x => x.name === title);
+  if (t) return t.salary;
+  return ADMIN_TITLES[title] || { min: 14_000, max: 18_000 };
+}
+
+/** Bir unvanın bir üstünü birim bazlı döndürür. */
+function _nextUnitTitle(unitId, currentTitle) {
+  const titles = ADMIN_UNITS[unitId]?.titles;
+  if (!titles) return _nextAdminTitle(currentTitle);
+  const idx = titles.findIndex(t => t.name === currentTitle);
+  if (idx < 0 || idx >= titles.length - 1) return null;
+  return titles[idx + 1].name;
+}
+
+/** Bir unvan birim için yönetici seviyesinde mi (son 2 unvan)? */
+export function isUnitManagerTitle(unitId, title) {
+  const titles = ADMIN_UNITS[unitId]?.titles;
+  if (!titles) return title === 'Müdür' || title === 'Müdür Yrd.';
+  const idx = titles.findIndex(t => t.name === title);
+  return idx >= titles.length - 2;
 }
 
 /**
  * Terfi uygunluğunu kontrol eder ve staff.promotionEligible'ı günceller.
- * Kriter:
- *   Memur → Uzman:     2+ yıl, quality > 55, efficiency > 50
- *   Uzman → Şef:       3+ yıl, quality > 65, leadership > 55
- *   Şef → Müdür Yrd.:  3+ yıl, quality > 70, leadership > 65
- *   Müdür Yrd. → Müdür:4+ yıl, quality > 75, leadership > 70
+ * Pozisyon bazlı kriter (0=en alt, 4=en üst):
+ *   0 → 1: 2+ yıl, quality > 55, efficiency > 50
+ *   1 → 2: 3+ yıl, quality > 65, leadership > 55
+ *   2 → 3: 3+ yıl, quality > 70, leadership > 65
+ *   3 → 4: 4+ yıl, quality > 75, leadership > 70
  */
 function _checkPromotionEligibility(staff) {
-  const t = staff.title;
+  const titleNames = getUnitTitles(staff.unit);
+  const idx = titleNames.indexOf(staff.title);
   const yip = safeNum(staff.yearsInPosition);
   const q   = safeNum(staff.quality);
   const eff = safeNum(staff.efficiency);
   const led = safeNum(staff.leadership);
 
   let eligible = false;
-  if (t === 'Memur')      eligible = yip >= 2 && q > 55 && eff > 50;
-  else if (t === 'Uzman') eligible = yip >= 3 && q > 65 && led > 55;
-  else if (t === 'Şef')   eligible = yip >= 3 && q > 70 && led > 65;
-  else if (t === 'Müdür Yrd.') eligible = yip >= 4 && q > 75 && led > 70;
+  if (idx === 0)      eligible = yip >= 2 && q > 55 && eff > 50;
+  else if (idx === 1) eligible = yip >= 3 && q > 65 && led > 55;
+  else if (idx === 2) eligible = yip >= 3 && q > 70 && led > 65;
+  else if (idx === 3) eligible = yip >= 4 && q > 75 && led > 70;
+  // idx === 4 (en üst) veya bilinmeyen → terfi yok
 
   if (eligible && !staff.promotionEligible) {
     // Yeni uygunluk başladı
@@ -705,8 +800,9 @@ function _updateAdminStaffPerformance(staff) {
   // Alt istatistikleri hafifçe geliştir (deneyim etkisi)
   staff.efficiency    = Math.min(100, safeNum(staff.efficiency)    + randInt(0, 2));
   staff.techSkills    = Math.min(100, safeNum(staff.techSkills)    + randInt(0, 1));
-  // Liderlik: Şef ve üstü unvanlarda daha hızlı gelişir
-  const titleIdx = ADMIN_TITLE_ORDER.indexOf(staff.title);
+  // Liderlik: Orta ve üstü pozisyonlarda (idx >= 2) daha hızlı gelişir
+  const titleNames = getUnitTitles(staff.unit);
+  const titleIdx   = titleNames.indexOf(staff.title);
   if (titleIdx >= 2) {
     staff.leadership = Math.min(100, safeNum(staff.leadership) + randInt(0, 1));
   }
@@ -737,8 +833,8 @@ function _updateAdminStaffPerformance(staff) {
   staff.yearsInPosition = safeNum(staff.yearsInPosition) + 0.5;
 
   // Mutluluk: maaş vs. barem etkisi
-  const midpoint = _titleMidpoint(staff.title);
-  const range = ADMIN_TITLES[staff.title] || { min: 14_000, max: 25_000 };
+  const midpoint = _titleMidpoint(staff.title, staff.unit);
+  const range = getUnitTitleSalary(staff.unit, staff.title);
   if (safeNum(staff.salary) > midpoint) {
     staff.happiness = Math.min(100, safeNum(staff.happiness) + randInt(0, 3));
   } else if (safeNum(staff.salary) < range.min) {
@@ -756,7 +852,7 @@ function _calculateAdminTurnover(adminStaff) {
   for (const staff of adminStaff) {
     let leaveChance = 0.02;
 
-    const midpoint = _titleMidpoint(staff.title);
+    const midpoint = _titleMidpoint(staff.title, staff.unit);
     if (safeNum(staff.salary) < midpoint) leaveChance += 0.05;
     if (staff.promotionEligible && safeNum(staff.semestersSinceEligible) > 3) leaveChance += 0.08;
     if (safeNum(staff.happiness) < 40) leaveChance += 0.06;
@@ -784,7 +880,7 @@ function _assignUnitManagers(adminUnits, adminStaff) {
 
   for (const [unitId, unit] of Object.entries(adminUnits)) {
     const eligible = adminStaff.filter(
-      s => s.unit === unitId && (s.title === 'Müdür' || s.title === 'Müdür Yrd.')
+      s => s.unit === unitId && isUnitManagerTitle(unitId, s.title)
     );
     if (eligible.length === 0) {
       unit.managerId   = null;
@@ -828,10 +924,10 @@ export function promoteAdminStaff(staffId) {
   if (!_state) return { success: false, message: 'Oyun başlatılmamış.' };
   const staff = (_state.adminStaff || []).find(s => s.id === staffId);
   if (!staff) return { success: false, message: 'Personel bulunamadı.' };
-  const nextTitle = _nextAdminTitle(staff.title);
+  const nextTitle = _nextUnitTitle(staff.unit, staff.title);
   if (!nextTitle) return { success: false, message: 'Bu unvan zaten en yüksek.' };
 
-  const newRange = ADMIN_TITLES[nextTitle];
+  const newRange = getUnitTitleSalary(staff.unit, nextTitle);
   const newSalary = Math.round((newRange.min + newRange.max) / 2); // Yeni baremde orta noktadan başla
   staff.title                  = nextTitle;
   staff.salary                 = Math.max(staff.salary, newSalary); // Mevcut maaş düşmesin
@@ -979,8 +1075,10 @@ export function assignUnitManager(unitId, staffId) {
   }
   const staff = (_state.adminStaff || []).find(s => s.id === staffId);
   if (!staff) return { success: false, message: 'Personel bulunamadı.' };
-  if (staff.title !== 'Müdür' && staff.title !== 'Müdür Yrd.') {
-    return { success: false, message: 'Sadece Müdür veya Müdür Yrd. yönetici atanabilir.' };
+  if (!isUnitManagerTitle(unitId, staff.title)) {
+    const titles = getUnitTitles(unitId);
+    const topTwo = titles.slice(-2).join(' veya ');
+    return { success: false, message: `Sadece ${topTwo} yönetici atanabilir.` };
   }
   unit.managerId         = staff.id;
   unit.managerName       = staff.name;
@@ -990,36 +1088,42 @@ export function assignUnitManager(unitId, staffId) {
 
 // İdari personel adayı üret (işe alma modalı için)
 // levelKey: 'junior' | 'mid' | 'senior' (yeni yol)
-//           VEYA eski title string ('Memur', 'Uzman', vb.) — backward compat
+//           VEYA birime özel unvan string'i VEYA eski legacy unvan — backward compat
 export function generateAdminCandidates(unitId, levelKey, count = 3) {
   const candidates = [];
-  // Eski yol: ADMIN_TITLES'ta varsa title olarak davran
-  const isOldTitle = Object.prototype.hasOwnProperty.call(ADMIN_TITLES, levelKey);
+  const expLevels = ['junior', 'mid', 'senior'];
+  const isExpLevel = expLevels.includes(levelKey);
+  // Birim bazlı unvan adı mı yoksa legacy unvan mı?
+  const unitTitles = getUnitTitles(unitId);
+  const isKnownTitle = unitTitles.includes(levelKey) || Object.prototype.hasOwnProperty.call(ADMIN_TITLES, levelKey);
   for (let i = 0; i < count; i++) {
-    if (isOldTitle) {
+    if (isExpLevel) {
+      candidates.push(generateAdminStaffMember(unitId, { experienceLevel: levelKey }));
+    } else if (isKnownTitle) {
       candidates.push(generateAdminStaffMember(unitId, { title: levelKey }));
     } else {
-      candidates.push(generateAdminStaffMember(unitId, { experienceLevel: levelKey }));
+      candidates.push(generateAdminStaffMember(unitId, { experienceLevel: 'mid' }));
     }
   }
   return candidates;
 }
 
 // İdari personel işe al
-// chosenTitle: opsiyonel — yoksa candidate.suggestedTitle veya 'Uzman' kullanılır
+// chosenTitle: opsiyonel — yoksa candidate.suggestedTitle veya birim 2. unvanı kullanılır
 export function hireAdminStaff(candidate, chosenTitle) {
   if (!_state) return;
   if (!_state.adminStaff) _state.adminStaff = [];
 
-  const title   = chosenTitle || candidate.suggestedTitle || candidate.title || 'Uzman';
-  const baremeT = ADMIN_TITLES[title] || { min: 14_000, max: 18_000 };
+  const unitId  = candidate.unit;
+  const unitTitles = getUnitTitles(unitId);
+  const title   = chosenTitle || candidate.suggestedTitle || candidate.title || unitTitles[1] || 'Uzman';
+  const baremeT = getUnitTitleSalary(unitId, title);
   const bareMid = Math.round((baremeT.min + baremeT.max) / 2);
 
   // Maaş ve mutluluk/sadakat: önerilen rütbeyle karşılaştır
   const sugT    = candidate.suggestedTitle || title;
-  const TITLE_ORDER_H = ['Memur', 'Uzman', 'Şef', 'Müdür Yrd.', 'Müdür'];
-  const sugIdx  = TITLE_ORDER_H.indexOf(sugT);
-  const choIdx  = TITLE_ORDER_H.indexOf(title);
+  const sugIdx  = unitTitles.indexOf(sugT);
+  const choIdx  = unitTitles.indexOf(title);
 
   let finalSalary = Math.max(candidate.salaryExpectation || bareMid, baremeT.min);
   let happAdj = 0, loyaltyAdj = 0;
@@ -1054,6 +1158,8 @@ export function hireAdminStaff(candidate, chosenTitle) {
   _state.adminStaff.push(staffMember);
   // Birim istatistiklerini güncelle
   syncAdminUnitStats(_state.adminUnits, _state.adminStaff, _state.buildings);
+  // Yeni alınan personel yönetici seviyesindeyse birime otomatik yönetici ata
+  _assignUnitManagers(_state.adminUnits, _state.adminStaff);
 }
 
 // İdari birim yükselt
@@ -1597,6 +1703,8 @@ export function initGame(playerName, universityName, universityType, difficulty,
       consecutiveLowStudentTurns: 0,
       gameOver: false,
       gameWon: false,
+      freeMode: false,
+      lastWarning: {},
     },
 
     // ── Araştırma bütçesi (hoca başına dönemlik fon) ───────────────────────
@@ -1746,11 +1854,83 @@ export function initGame(playerName, universityName, universityType, difficulty,
  *
  * @param {object} quotas — { deptId: { tamBurslu, yariBurslu, ucretli }, ... }
  */
+/**
+ * Bir bölüm için sertl derslik kapasitesi (atanmış binalardan).
+ * UI tarafındaki hesabın sunucu eşdeğeri (v0.4.57 - exploit fix).
+ */
+function _calcDeptClassroomCapacity(state, deptId) {
+  let seats = 0;
+  const completed = (state.buildings || []).filter(b => b.isCompleted);
+  for (const b of completed) {
+    if (!(b.assignedDepartments || []).includes(deptId)) continue;
+    const bldgDef = BUILDINGS[b.type];
+    const classrooms = b.currentCapacity?.classrooms || 0;
+    const bLevel    = b.level || 1;
+    const szByLvl   = bldgDef?.classroomSizeByLevel;
+    const clsSize   = szByLvl ? (szByLvl[bLevel] ?? szByLvl[1] ?? bldgDef?.classroomSize ?? 40)
+                              : (bldgDef?.classroomSize ?? 40);
+    seats += classrooms * clsSize;
+  }
+  return seats;
+}
+
+/**
+ * Tek bir alan değerini güvenli tam sayıya çevirir, [0, max] aralığına klampler.
+ * NaN, negatif, ondalık, string -> hepsi tutarlı.
+ */
+function _sanitizeQuotaField(v, max) {
+  const n = parseInt(v, 10);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.min(n, max);
+}
+
 export function applyQuotas(quotas) {
   if (!_state) throw new Error('Oyun başlatılmamış.');
-  _state.students.quotas = { ..._state.students.quotas, ...quotas };
+  if (!quotas || typeof quotas !== 'object') return { success: false, message: 'Geçersiz kontenjan verisi.' };
+
+  // Bölüm başına makul tavan: 4 yıl × derslik kapasitesinin %110'u (yıllık kapasitenin biraz üzerine izin)
+  // Derslik kapasitesi hesaplanamıyorsa absolute 800 tavan kullan.
+  const ABS_MAX_PER_DEPT = 800;
+  const sanitized = {};
+  let clampedAny = false;
+
+  for (const [deptId, q] of Object.entries(quotas)) {
+    if (!q || typeof q !== 'object') continue;
+    const dept = (_state.departments || []).find(d => d.id === deptId);
+    if (!dept || !dept.isOpen) continue; // bilinmeyen veya kapalı bölüm
+
+    const classroomCap = _calcDeptClassroomCapacity(_state, deptId);
+    // Bir dönemde bir bölüme alınabilecek yeni öğrenci tavanı.
+    // Derslik kapasitesi mevcutsa onun %110'u (esnek), yoksa absolute tavan.
+    const deptCap = classroomCap > 0
+      ? Math.min(ABS_MAX_PER_DEPT, Math.ceil(classroomCap * 1.1))
+      : ABS_MAX_PER_DEPT;
+
+    const tam  = _sanitizeQuotaField(q.tamBurslu,  deptCap);
+    const yari = _sanitizeQuotaField(q.yariBurslu, deptCap);
+    const uret = _sanitizeQuotaField(q.ucretli,    deptCap);
+    let total  = tam + yari + uret;
+
+    // Toplam kontenjan bölüm tavanını aşmasın - orantılı kırp
+    let outTam = tam, outYari = yari, outUret = uret;
+    if (total > deptCap) {
+      const factor = deptCap / total;
+      outTam  = Math.floor(tam  * factor);
+      outYari = Math.floor(yari * factor);
+      outUret = Math.floor(uret * factor);
+      clampedAny = true;
+    }
+    // Orijinal değerlerden herhangi biri klamplandıysa işaretle
+    if (outTam !== Number(q.tamBurslu) || outYari !== Number(q.yariBurslu) || outUret !== Number(q.ucretli)) {
+      clampedAny = true;
+    }
+
+    sanitized[deptId] = { tamBurslu: outTam, yariBurslu: outYari, ucretli: outUret };
+  }
+
+  _state.students.quotas = { ..._state.students.quotas, ...sanitized };
   _state.students.quotaScreenShown = true;
-  return { success: true };
+  return { success: true, clamped: clampedAny };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2233,6 +2413,40 @@ const _PROJECT_NAME_TEMPLATES = {
   'Klinik Psikoloji':        ['{obj} Hastalıklarında Yeni Tanı Yöntemleri', 'Kişiselleştirilmiş {obj} Tedavi Yaklaşımları', '{obj} Biyobelirteçlerinin Klinik Değerlendirmesi'],
   'Kardiyoloji':             ['İleri Evre {obj} Kardiyak Tanı Yöntemi', '{obj} Kalp Yetmezliği Erken Tespit Sistemi', 'Yapay Zeka Destekli {obj} EKG Analizi'],
   'Onkoloji':                ['{obj} Kanser Erken Tanı Biyobelirteçleri', 'Hedefe Yönelik {obj} Kanser Tedavi Modeli', 'İmmünoterapi Tabanlı {obj} Kanser Araştırması'],
+
+  // ── Tıp Fakültesi ──────────────────────────────────────────────────────────
+  'Nöroloji':                ['{obj} için Erken Tanı Biyobelirteçlerinin Belirlenmesi', '{obj} Hastalığında Nöroprotektif Tedavi Yaklaşımları', 'Fonksiyonel MRI ile {obj} Hastalarında Beyin Ağı Haritalaması'],
+  'Dahiliye':                ['{obj} Hastalarında Kişiselleştirilmiş Tedavi Protokolü', 'Polifarmasi Yönetiminde {obj} Klinik Karar Destek Sistemi', '{obj} Yönetiminde Dijital Takip Modeli'],
+  'Cerrahi':                 ['{obj} Ameliyatlarında Minimal İnvaziv Teknik Geliştirme', 'Robotik Yardımlı {obj} Cerrahisinde Güvenlik Protokolü', '{obj} Postoperatif Komplikasyon Erken Tespit Sistemi'],
+  'Pediatri':                ['{obj} Olgularında Beslenme Müdahalesinin Etkinliği', '{obj} için Erken Tanı ve Tarama Programı Optimizasyonu', '{obj} İzleminde Yapay Zeka Destekli Karar Sistemleri'],
+  'Radyoloji':               ['{obj} ile Erken Teşhis Doğruluğunun Artırılması', 'Yapay Zeka Destekli {obj} Bulgularının Sınıflandırılması', '{obj} Eşliğinde Girişimsel İşlemlerin Başarı Analizi'],
+
+  // ── Diş Hekimliği Fakültesi ────────────────────────────────────────────────
+  'Ortodonti':               ['{obj} ile İskelet Maloklüzyonu Erken Tedavi Protokolü', 'Dijital {obj} Tedavi Planlamasında Yapay Zeka Desteği', '{obj} Braket Sistemlerinde Tedavi Süresi Optimizasyonu'],
+  'Oral Cerrahi':            ['{obj} Olgularında Cerrahi Sonrası İyileşmenin Hızlandırılması', '{obj} Tedavisinde Trombositten Zengin Fibrinin Etkinliği', '{obj} Sonuçlarının Uzun Dönem Klinik Takibi'],
+  'Endodonti':               ['Kök Kanalı Tedavisinde {obj} Başarı Oranı Analizi', '{obj} Uygulamalarında Apikal Sızıntının Değerlendirilmesi', 'Rejeneratif Endodontide {obj} Doku Yenileme Kapasitesi'],
+  'Periodontoloji':          ['{obj} Periodontal Hastalık İlerleme Biyobelirteçleri', 'Trombosit Kaynaklı {obj} Periodontal Doku Rejenerasyonu', '{obj} Sistemik Hastalık ile Periodontal Korelasyon Analizi'],
+  'Protetik Diş Tedavisi':   ['{obj} Restorasyonlarında Aderans Dayanıklılığı Testi', 'Dijital İz Alma ile {obj} Uyum Hassasiyetinin Değerlendirilmesi', '{obj} Uygulamalarında Oklüzal Yük Dağılımının Sonlu Elemanlar Analizi'],
+
+  // ── Eczacılık Fakültesi ────────────────────────────────────────────────────
+  'Farmakoloji':             ['{obj} İlaç Etkileşimleri ve Klinik Güvenlik Profili', '{obj} Reseptör Bağlanma Afinitesi Tahmin Modeli', 'Kronik Hastalıklarda {obj} Farmakokinetiğinin Popülasyon Analizi'],
+  'Farmasötik Kimya':        ['Yeni {obj} Kanser Biyoaktif Bileşik Tasarımı', '{obj} Molekül Hedefli İlaç Etken Madde Sentezi', 'Halojensiz {obj} Yeşil Sentez Yolunun Geliştirilmesi'],
+  'Klinik Eczacılık':        ['{obj} Hastalarında Politerapi Rasyonalizasyonu ve İlaç Uyum Programı', '{obj} Servisinde Antibiyotik Yönetim Programının Etkinliği', 'Yaşlı {obj} Hastalarında Doz Güvenliği Protokolü'],
+  'Farmakognozy':            ['{obj} Bitkisel Ekstraktların Antimikrobiyal Etkinlik Analizi', 'Türkiye Endemik {obj} Bitkilerinde Fitokimyasal Tarama', '{obj} Doğal Ürün Standardizasyon ve Kalite Kontrol Yöntemi'],
+
+  // ── Hemşirelik ─────────────────────────────────────────────────────────────
+  'Dahiliye Hemşireliği':    ['{obj} Hastalarında Öz-Yönetim Eğitiminin Etkinliği', '{obj} Bakımında Kanıta Dayalı Hemşirelik Protokolü', '{obj} Yönetiminde Hemşire Liderliğinde Klinik İzlem Modeli'],
+  'Cerrahi Hemşirelik':      ['{obj} Postoperatif Ağrı Yönetiminde Hemşirelik Müdahalesi', '{obj} Perioperatif Bakımda Enfeksiyon Önleme Protokolü', '{obj} Ameliyatları Sonrası Erken Mobilizasyon Programı'],
+  'Toplum Sağlığı':          ['{obj} Toplumsal Tarama Programı Etkinlik ve Maliyet Analizi', '{obj} Okul Sağlığı Hemşireliği Müdahale Modeli', '{obj} Kronik Hastalık Önlemede Sağlık Okuryazarlığı Programı'],
+  'Yoğun Bakım':             ['{obj} Hastalarında Erken Uyarı Skorlama Sistemi', 'Yoğun Bakımda {obj} Yönetimi için Güvenlik Protokolü', 'Yoğun Bakım Hastalarında {obj} ve Sirkadyen Ritim İlişkisi'],
+
+  // ── Biyomedikal Mühendisliği ───────────────────────────────────────────────
+  'Tıbbi Görüntüleme':       ['Derin Öğrenme ile {obj} Tıbbi Görüntü Segmentasyon Sistemi', '{obj} MRI Sinyal Gürültü Oranını Artıran Yeniden Yapılandırma', 'Az Işınlı {obj} BT Görüntülemede Yapay Zeka Tabanlı Gürültü Giderme'],
+  'Biyomekanik':             ['{obj} Eklem Protezi Kinematik ve Kinetik Analizi', 'Yürüyüş Analizi ile {obj} Spor Yaralanması Risk Tahmini', 'Sonlu Elemanlar Yöntemi ile {obj} Kemik Biyomekanik Modeli'],
+  'Biyoelektronik':          ['Giyilebilir {obj} Biyosensör Tasarımı ve Klinik Doğrulama', '{obj} Sinir-Makine Arayüzü Sinyal Kodlama Algoritması', 'İmplante Edilebilir {obj} Elektrot Uzun Dönem Biyouyumluluk Analizi'],
+  'Doku Mühendisliği':       ['İskele Bazlı {obj} Doku Rejenerasyonu In-Vitro Modeli', '{obj} Biyobaskılı Yapı ile Kıkırdak Onarım Protokolü', '{obj} Kök Hücre Farklılaşması için Biyoreaktör Tasarımı'],
+  'Protez Tasarımı':         ['{obj} Protezi ile Fonksiyonel Rehabilitasyon Klinik Çalışması', 'Açık Kaynak {obj} Protezi için Düşük Maliyetli Üretim Sistemi', '{obj} Protezlerinde Gömülü Sensörle Kullanım Geri Bildirimi Analizi'],
+
   'Medeni Hukuk':            ['Dijital {obj} Hakların Korunması', 'Yapay Zeka ve {obj} Hukuku Karşılaştırmalı Analiz', '{obj} Kişisel Veri Gizliliği Hukuk Çerçevesi'],
   'Ticaret Hukuku':          ['E-Ticaret {obj} Hukuki Düzenleme Analizi', 'Uluslararası {obj} Hukuk Normları Araştırması', 'Fintech {obj} Regülasyon Çerçevesi'],
   'default': [
@@ -2260,6 +2474,40 @@ const _PROJECT_OBJECTS = {
   'Yapı Mühendisliği':       ['Köprü', 'Yüksek Bina', 'Tünel', 'Baraj', 'Prefabrik'],
   'Operasyon Araştırması':   ['Hastane', 'Liman', 'Havalimanı', 'Depo', 'Üretim'],
   'Finans':                  ['Kripto', 'Sigortacılık', 'Banka', 'Yatırım Fonu', 'Emeklilik'],
+
+  // ── Tıp Fakültesi ──────────────────────────────────────────────────────────
+  'Nöroloji':                ['Multiple Skleroz', 'Alzheimer', 'Parkinson', 'Epilepsi', 'Huntington'],
+  'Dahiliye':                ['Tip-2 Diyabet', 'Kronik Böbrek Yetmezliği', 'Romatoid Artrit', 'Karaciğer Sirozu', 'Tiroid'],
+  'Cerrahi':                 ['Laparoskopik Kolesistektomi', 'Kolorektal', 'Bariatrik', 'Torasik', 'Endokrin'],
+  'Pediatri':                ['Prematürite', 'Çocuk Obezitesi', 'Konjenital Kalp Hastalığı', 'Çocukluk Çağı Astımı', 'Neonatal Sepsis'],
+  'Radyoloji':               ['Meme Görüntüleme', 'Karaciğer MRI', 'Akciğer BT', 'Beyin Perfüzyon BT', 'Prostat MRI'],
+
+  // ── Diş Hekimliği Fakültesi ────────────────────────────────────────────────
+  'Ortodonti':               ['Şeffaf Plak', 'Mini İmplant Ankraj', 'Erken Karışık Dentisyon', 'Sınıf III Maloklüzyon', 'Dijital Sefalometri'],
+  'Oral Cerrahi':            ['Gömük Yirmilik Diş', 'Dental İmplant', 'Bisfosfonat İlişkili Osteonekroz', 'Ortognatik Cerrahi', 'Kemik Grefti'],
+  'Endodonti':               ['Döner Eğe Sistemleri', 'Biyoseramik Dolgu', 'Trombositten Zengin Fibrin', 'Kalsiyum Silikat Çimento', 'Mineral Trioksit Agregat'],
+  'Periodontoloji':          ['Sigara Kullanan Periodontitis', 'Peri-implantit', 'Diyabetik Periodontal', 'Trombositten Zengin Plazma', 'Antibiyotik Adjuvan'],
+  'Protetik Diş Tedavisi':   ['Zirkonyum Altyapı', 'İmplant Üstü Overdenture', 'CAD/CAM Kron', 'Lamina Veneer', 'Akrilik Kaide'],
+
+  // ── Eczacılık Fakültesi ────────────────────────────────────────────────────
+  'Farmakoloji':             ['SSRI-MAOI', 'Antikoagülan-Aspirin', 'Metformin', 'Warfarin', 'Kanser Kemoterapötik'],
+  'Farmasötik Kimya':        ['EGFR İnhibitörü', 'PARP İnhibitörü', 'Tirozin Kinaz', 'Flavonoid Türevi', 'HDAC İnhibitörü'],
+  'Klinik Eczacılık':        ['Onkoloji', 'Kardiyoloji', 'Psikiyatri', 'Yoğun Bakım', 'Nefroloji'],
+  'Farmakognozy':            ['Salvia', 'Thymus', 'Hypericum', 'Origanum', 'Centaurea'],
+
+  // ── Hemşirelik ─────────────────────────────────────────────────────────────
+  'Dahiliye Hemşireliği':    ['Diyabetik Ayak', 'Kalp Yetmezliği', 'Kronik Böbrek Hastalığı', 'Romatoid Artrit', 'KOAH'],
+  'Cerrahi Hemşirelik':      ['Abdominal', 'Ortopedi', 'Kardiyovasküler', 'Nöroşirurji', 'Transplantasyon'],
+  'Toplum Sağlığı':          ['Aile Planlaması', 'Okul Çağı Obezitesi', 'Yaşlı Ev Bakımı', 'Koroner Kalp', 'Tüberküloz'],
+  'Yoğun Bakım':             ['Sepsis', 'Mekanik Ventilasyon', 'Deliryum', 'Akut Böbrek Hasarı', 'Çoklu Organ Yetmezliği'],
+
+  // ── Biyomedikal Mühendisliği ───────────────────────────────────────────────
+  'Tıbbi Görüntüleme':       ['Meme Kanseri', 'Beyin Tümörü', 'Retina', 'Karaciğer Lezyonu', 'Pulmoner Nodül'],
+  'Biyomekanik':             ['Total Diz Protezi', 'Spinal Füzyon Kafes', 'Omuz İmplantı', 'Çapraz Bağ', 'Kalça Protezi'],
+  'Biyoelektronik':          ['EEG Uyku Apnesi', 'Kardiyak Ritim', 'EMG Kas Yorgunluğu', 'EKG Aritmisi', 'İşitme Cihazı'],
+  'Doku Mühendisliği':       ['Kıkırdak Onarım', 'Kemik Defekt', 'Cilt Yanık', 'Korneyal', 'Kardiyak Yama'],
+  'Protez Tasarımı':         ['Miyoelektrik El', 'Diz Üstü', 'Transtibial', 'Transhumeral', 'Osseointegre Bacak'],
+
   'default':                 ['Sürdürülebilir Kalkınma', 'Çevresel', 'Toplumsal', 'Eğitim', 'Sağlık', 'Enerji', 'Ulaşım', 'Dijital'],
 };
 
@@ -3801,6 +4049,25 @@ export function nextTurn() {
   }
   _state.meta.turn++;
 
+  // Yanıtsız ilan başvurularını temizle (2 dönem geçmişse otomatik çekilir)
+  {
+    if (!_state.pendingApplicants) _state.pendingApplicants = [];
+    const beforeCount = _state.pendingApplicants.length;
+    _state.pendingApplicants = _state.pendingApplicants.filter(a =>
+      (_state.meta.turn - (a.applicationDate ?? _state.meta.turn)) < 2
+    );
+    const withdrawnCount = beforeCount - _state.pendingApplicants.length;
+    if (withdrawnCount > 0) {
+      if (!simResults.events) simResults.events = [];
+      simResults.events.push({
+        type: 'info',
+        icon: '📋',
+        title: 'Başvurular Geri Çekildi',
+        description: `${withdrawnCount} başvuru sahibi yanıt alamadığı için başvurusunu geri çekti.`,
+      });
+    }
+  }
+
   // Açık ilanlar için başvurucu üret
   if (_state.openPositions && _state.openPositions.length > 0) {
     if (!_state.pendingApplicants) _state.pendingApplicants = [];
@@ -3877,6 +4144,9 @@ export function nextTurn() {
   // Kazanma/kaybetme kontrolü
   const winLoseResult = checkWinLose();
 
+  // Erken uyarıları topla (senaryo bitişi, iflas riski, düşük öğrenci)
+  const earlyWarnings = _checkEarlyWarnings();
+
   // Özet oluştur
   const summary = getTurnSummary(simResults);
 
@@ -3884,6 +4154,7 @@ export function nextTurn() {
     ...summary,
     ...winLoseResult,
     simWarnings: simResults.warnings,
+    earlyWarnings,
   };
 }
 
@@ -4299,8 +4570,8 @@ export function checkWinLose() {
     };
   }
 
-  // ── KAZANMA KOŞULLARI (sandbox'ta aktif değil) ────────────────────────────
-  if (!_state.meta.isSandbox) {
+  // ── KAZANMA KOŞULLARI (sandbox ve serbest modda aktif değil) ─────────────
+  if (!_state.meta.isSandbox && !_state._internal?.freeMode) {
     // ── Senaryo kazanma/kaybetme koşulları ──────────────────────────────────
     const scenarioWin = _state.meta.scenarioWinCondition;
     if (scenarioWin) {
@@ -4416,6 +4687,84 @@ export function checkWinLose() {
   }
 
   return { gameOver: false, gameWon: false, reason: null };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// enableFreeMode — Kazanma sonrası serbest devam
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Kazanma ekranından "Serbest Devam Et" seçildiğinde çağrılır.
+ * Senaryo hedefini kaldırır, oyunu normal akışa döndürür.
+ * Serbest moddayken checkWinLose kazanma koşullarını atlar; yalnızca iflas
+ * ve öğrenci kaybı kontrolleri çalışmaya devam eder.
+ *
+ * @returns {{ success: boolean, message: string }}
+ */
+export function enableFreeMode() {
+  if (!_state) return { success: false, message: 'Oyun başlatılmamış.' };
+  _state._internal.freeMode    = true;
+  _state._internal.gameWon     = false;
+  _gameWon                     = false;
+  // Senaryo hedefini kaldır — tekrar tetiklenmesin
+  if (_state.meta) _state.meta.scenarioWinCondition = null;
+  return { success: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _describeScenarioGoal — Senaryo hedefi kısa açıklaması (uyarılarda kullanılır)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _describeScenarioGoal(sw) {
+  if (!sw) return 'senaryo hedefi';
+  if (sw.type === 'prestige')       return `Saygınlık ${sw.target}`;
+  if (sw.type === 'ranking')        return `Dünya sıralaması ilk ${sw.target}`;
+  if (sw.type === 'budget_positive') return `${sw.consecutiveTurns} dönem üst üste pozitif bütçe`;
+  return 'senaryo hedefi';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _checkEarlyWarnings — Dönem sonu erken uyarı kontrolü
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Senaryo bitişine, iflas riskine ve düşük öğrenciye yaklaşıldığında uyarılar üretir.
+ * main.js bu uyarıları okuyup showNotification ile gösterir.
+ *
+ * @returns {string[]} Tetiklenen uyarı anahtarları: 'scenario_end' | 'bankruptcy_risk' | 'low_student'
+ */
+export function _checkEarlyWarnings() {
+  if (!_state) return [];
+  const warnings = [];
+  const turn = _state.meta.turn;
+  const lastWarning = _state._internal.lastWarning || {};
+
+  // A. Senaryo bitişine 2 dönem kala uyarı
+  const sw = _state.meta?.scenarioWinCondition;
+  if (sw && sw.maxTurns) {
+    const remaining = sw.maxTurns - turn;
+    if (remaining === 2 && lastWarning.scenarioEnd !== turn) {
+      warnings.push('scenario_end:' + _describeScenarioGoal(sw));
+      _state._internal.lastWarning = { ...lastWarning, scenarioEnd: turn };
+    }
+  }
+
+  // B. Ardışık bütçe açığı / iflas riski
+  const deficit = _state._internal.consecutiveDeficitTurns || 0;
+  const bankruptcyTurns = _state._internal.bankruptcyTurns || 0;
+  if ((deficit >= 3 || bankruptcyTurns >= 3) && lastWarning.bankruptcy !== turn) {
+    warnings.push('bankruptcy_risk');
+    _state._internal.lastWarning = { ..._state._internal.lastWarning, bankruptcy: turn };
+  }
+
+  // C. Düşük öğrenci sayısı
+  const lowStu = _state._internal.consecutiveLowStudentTurns || 0;
+  if (lowStu >= 3 && lastWarning.lowStudent !== turn) {
+    warnings.push('low_student');
+    _state._internal.lastWarning = { ..._state._internal.lastWarning, lowStudent: turn };
+  }
+
+  return warnings;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4740,6 +5089,29 @@ function migrateState(state) {
 
   // Araştırma metrikleri ve H-Index bütünlüğü
   updateResearchMetrics(state);
+
+  // v0.4.59 Migration: applicationDate alanı olmayan ilan başvurularına mevcut dönemi yaz
+  // (anında silinmesinler; önümüzdeki 2 dönem boyunca görünürde kalsınlar)
+  for (const a of (state.pendingApplicants || [])) {
+    if (a.applicationDate == null) {
+      a.applicationDate = state.meta?.turn ?? 1;
+    }
+  }
+
+  // v0.4.53 Migration: eski ortak rütbeler (Memur/Uzman/Şef/Müdür Yrd./Müdür) birim özel unvanlara dönüştür
+  for (const s of (state.adminStaff || [])) {
+    const newTitles = ADMIN_UNITS[s.unit]?.titles;
+    if (!newTitles) continue; // bilinmeyen birim, dokunma
+    const newTitleNames = newTitles.map(t => t.name);
+    if (newTitleNames.includes(s.title)) continue; // zaten yeni unvan
+    // Eski rütbeyi pozisyon ile yeni unvana çevir
+    const oldIdx = ADMIN_TITLE_ORDER.indexOf(s.title);
+    if (oldIdx >= 0 && oldIdx < newTitleNames.length) {
+      const oldTitle = s.title;
+      s.title = newTitleNames[oldIdx];
+      console.log(`[game] migrateState: ${s.name} (${s.unit}) unvanı güncellendi: ${oldTitle} → ${s.title}`);
+    }
+  }
 }
 
 // setState — Yüklenen state'i doğrudan uygula (kayıt yükleme için)
@@ -4971,11 +5343,14 @@ export function setState(loadedState) {
     // v0.4: Kampüs grid layout'unu tamamla (eski kayıtlar için)
     if (!s.campus) initCampusState(s);
 
-    // Yükleme sonrası sayaçları sıfırla (yalnızca oyun bitmemişse)
+    // Yükleme sonrası grace-period sayaçlarını sıfırla (ani iflas/kapanmayı önler)
     _bankruptcyTurns = 0;
     _lowStudentTurns = 0;
-    _gameOver        = !!s._internal?.gameOver;
-    _gameWon         = !!s._internal?.gameWon;
+
+    // gameOver/gameWon state'ten oku: kazanılmış/bitmiş kaydı yükleyen oyuncu
+    // durumu korumalı (v0.4.51 — Issue #19, #23).
+    _gameOver = !!s._internal?.gameOver;
+    _gameWon  = !!s._internal?.gameWon;
 
     // Hatalı senaryo erken zafer bayrağını (Ulusal 1.lik vs Dünya İlk 30 karmaşası) otomatik onar
     const scWin = s.meta?.scenarioWinCondition;
@@ -4999,13 +5374,11 @@ export function setState(loadedState) {
       }
     }
 
-    // Iç bayrakları da temizle: yüklenen state'te eski bir game over/win flag'ı
-    // kalmışsa nextTurn döngüsü bozulur.
+    // Grace-period sayaçlarını sıfırla: eski kayıtta birikmiş sayaç
+    // yükleme anında ani iflas/kapanmayı tetiklemesin.
     if (s._internal) {
-      // s._internal.gameOver = false; // Persistent state'i koru
-      // s._internal.gameWon  = false;
-      // Sayaçları sıfırlamıyoruz, böylece tehlikeli durumdaki bir kayıt
-      // yüklenince aynı tehlike seviyesinden devam eder.
+      s._internal.consecutiveLowStudentTurns = 0;
+      s._internal.bankruptcyTurns            = 0;
     }
 
     // Araştırma metriklerini (yayınlar, atıflar, H-Index) yüklenen hocalar üzerinden garantiye al
