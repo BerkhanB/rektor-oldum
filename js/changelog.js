@@ -6,6 +6,17 @@
 
 export const CHANGELOG = [
   {
+    version: '0.4.76',
+    date: '2026-09-14',
+    title: 'İdari Birimler: Yönetici Tanıma ve Terfi Düzeltmeleri',
+    items: [
+      { type: 'fix', text: 'Müdür veya Müdür Yrd. unvanına sahip personellerin birim yöneticisi olarak atanamaması ve "Bu birimde yönetici seviyesinde personel bulunmuyor" uyarısı vermesi sorunu giderildi; hem genel unvanlar hem de birime özel üst unvanlar yönetici kabul edilir.' },
+      { type: 'fix', text: 'İdari personel terfi kontrolünde birim unvanlarının doğru tespit edilmesi sağlandı; personelin terfiye hak kazanıp kazanmadığı ve terfi butonu artık kartlarda ve personel listelerinde doğru şekilde görüntüleniyor.' },
+      { type: 'fix', text: 'Üst paneldeki "X personel terfiye hazır" sayacı ile personellerin bireysel terfi durumları senkronize edildi; terfi butonunun görünmemesi ve otomatik terfi fonksiyonundaki unvan geçiş uyumsuzlukları giderildi.' },
+      { type: 'fix', text: 'Mevcut kayıtlardaki idari personellerin unvanları ve yönetici atamaları oyun yüklendiğinde otomatik olarak doğrulanıp onarılır.' },
+    ],
+  },
+  {
     version: '0.4.75',
     date: '2026-09-13',
     title: 'Ana Menü Butonları ve Modül Yükleme Düzeltmesi',

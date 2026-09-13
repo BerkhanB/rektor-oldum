@@ -1,5 +1,6 @@
 import { el, on, formatMoney, showModal, hideModal, createStatBar, _statColor } from './ui_base.js';
-import { ADMIN_UNITS, ADMIN_TITLES, ADMIN_UNIT_BUILDINGS } from '../data.js?v=0.4.48';
+import { ADMIN_UNITS, ADMIN_TITLES, ADMIN_UNIT_BUILDINGS } from '../data.js?v=0.4.76';
+import { getUnitTitles, getUnitTitleSalary, isUnitManagerTitle, getNextUnitTitle } from '../game.js?v=0.4.76';
 
 /**
  * İdari birimler sekmesini render eder.
@@ -45,16 +46,28 @@ export function renderAdminPanel(state, onHireAdmin, onUpgradeUnit) {
 
   const TITLE_ORDER = ['Memur', 'Uzman', 'Şef', 'Müdür Yrd.', 'Müdür'];
 
-  function _nextTitle(title) {
-    const idx = TITLE_ORDER.indexOf(title);
-    return (idx >= 0 && idx < TITLE_ORDER.length - 1) ? TITLE_ORDER[idx + 1] : null;
+  function _nextTitle(title, unitId) {
+    if (typeof getNextUnitTitle === 'function' && unitId) {
+      return getNextUnitTitle(unitId, title);
+    }
+    const titles = unitId ? getUnitTitles(unitId) : TITLE_ORDER;
+    let idx = titles.indexOf(title);
+    if (idx < 0) {
+      let legIdx = TITLE_ORDER.indexOf(title);
+      if (legIdx < 0) {
+        if (title === 'Müdür' || (title && title.endsWith('Müdürü'))) legIdx = titles.length - 1;
+        else if (title === 'Müdür Yrd.' || title === 'Müdür Yardımcısı') legIdx = Math.max(0, titles.length - 2);
+      }
+      if (legIdx >= 0 && legIdx < titles.length) idx = legIdx;
+    }
+    return (idx >= 0 && idx < titles.length - 1) ? titles[idx + 1] : null;
   }
 
   function _adminStaffCard(m) {
     const quality        = m.quality || 0;
     const ratingColor    = _adminRatingColor(quality);
     const ratingBg       = _adminRatingBg(quality);
-    const nextTitleName  = _nextTitle(m.title);
+    const nextTitleName  = _nextTitle(m.title, m.unit);
     const expYears       = Math.round((m.totalExperience || m.experience || 0) * 2) / 2;
     const happiness      = m.happiness ?? 60;
     const happClass      = happiness >= 70 ? 'high' : happiness >= 45 ? 'mid' : 'low';
@@ -130,7 +143,7 @@ export function renderAdminPanel(state, onHireAdmin, onUpgradeUnit) {
   function _adminStaffListRow(m, idx) {
     const quality       = m.quality || 0;
     const ratingColor   = _adminRatingColor(quality);
-    const nextTitleName = _nextTitle(m.title);
+    const nextTitleName = _nextTitle(m.title, m.unit);
     const expYears      = Math.round((m.totalExperience || m.experience || 0) * 2) / 2;
     const statusText    = m.promotionEligible && nextTitleName ? 'Terfi Hak.' : '—';
     const statusColor   = m.promotionEligible ? '#f5a623' : 'var(--text-muted)';
@@ -179,7 +192,7 @@ export function renderAdminPanel(state, onHireAdmin, onUpgradeUnit) {
     const levelDesc = template.levelBonuses[unit.level]?.description || '';
     const satBonus  = template.levelBonuses[unit.level]?.satisfactionBonus || 0;
 
-    const eligibleInUnit = unitStaff.filter(m => m.promotionEligible && _nextTitle(m.title)).length;
+    const eligibleInUnit = unitStaff.filter(m => m.promotionEligible && _nextTitle(m.title, m.unit)).length;
 
     const mgrRow = unit.managerId
       ? `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
@@ -365,10 +378,10 @@ export function renderAdminPanel(state, onHireAdmin, onUpgradeUnit) {
       </div>
 
       ${(() => {
-        const promotionCount = adminStaff.filter(m => m.promotionEligible && TITLE_ORDER.indexOf(m.title) < TITLE_ORDER.length - 1).length;
+        const promotionCount = adminStaff.filter(m => m.promotionEligible && _nextTitle(m.title, m.unit)).length;
         if (promotionCount === 0) return '';
         const withManagerCount = adminStaff.filter(m => {
-          if (!m.promotionEligible || TITLE_ORDER.indexOf(m.title) >= TITLE_ORDER.length - 1) return false;
+          if (!m.promotionEligible || !_nextTitle(m.title, m.unit)) return false;
           const u = adminUnits[m.unit];
           return u && u.managerId;
         }).length;
@@ -423,7 +436,14 @@ export function renderAdminPanel(state, onHireAdmin, onUpgradeUnit) {
           let va = a[sortKey] ?? 0;
           let vb = b[sortKey] ?? 0;
           if (sortKey === 'name') { va = a.name || ''; vb = b.name || ''; }
-          if (sortKey === 'title') { va = TITLE_ORDER.indexOf(a.title); vb = TITLE_ORDER.indexOf(b.title); }
+          if (sortKey === 'title') {
+            const uTitles = getUnitTitles(unitId);
+            let idxA = uTitles.indexOf(a.title);
+            if (idxA < 0) idxA = TITLE_ORDER.indexOf(a.title);
+            let idxB = uTitles.indexOf(b.title);
+            if (idxB < 0) idxB = TITLE_ORDER.indexOf(b.title);
+            va = idxA; vb = idxB;
+          }
           if (sortKey === 'experience') { va = a.totalExperience || a.experience || 0; vb = b.totalExperience || b.experience || 0; }
           if (typeof va === 'string') return sortAsc ? va.localeCompare(vb, 'tr') : vb.localeCompare(va, 'tr');
           return sortAsc ? va - vb : vb - va;
@@ -556,12 +576,8 @@ function _showAdminStaffDetail(staffId, adminStaff) {
   const m = adminStaff.find(s => s.id === staffId);
   if (!m) return;
 
-  const TITLE_ORDER = ['Memur', 'Uzman', 'Şef', 'Müdür Yrd.', 'Müdür'];
-  const titleRange  = ADMIN_TITLES[m.title] || { min: 14_000, max: 25_000 };
-  const nextTitleName = (() => {
-    const idx = TITLE_ORDER.indexOf(m.title);
-    return (idx >= 0 && idx < TITLE_ORDER.length - 1) ? TITLE_ORDER[idx + 1] : null;
-  })();
+  const titleRange  = getUnitTitleSalary(m.unit, m.title) || (ADMIN_TITLES[m.title] || { min: 14_000, max: 25_000 });
+  const nextTitleName = _nextTitle(m.title, m.unit);
   const expYears    = Math.round((m.totalExperience || m.experience || 0) * 2) / 2;
   const happiness   = m.happiness ?? 60;
   const quality     = m.quality || 0;
@@ -667,7 +683,8 @@ export function renderAdminHireModal(unitId, candidates, onHire, currentLevel) {
   const template = ADMIN_UNITS[unitId];
   if (!template) return;
 
-  const TITLE_ORDER_UI = ['Memur', 'Uzman', 'Şef', 'Müdür Yrd.', 'Müdür'];
+  const unitTitles = getUnitTitles(unitId);
+  const titleList = unitTitles.length > 0 ? unitTitles : ['Memur', 'Uzman', 'Şef', 'Müdür Yrd.', 'Müdür'];
 
   const levelOptions = [
     { value: 'junior', label: 'Giriş seviye aday' },
@@ -680,10 +697,12 @@ export function renderAdminHireModal(unitId, candidates, onHire, currentLevel) {
   window._adminCandidateCache = candidates;
 
   const candidateRows = candidates.map((c, idx) => {
-    const sugT   = c.suggestedTitle || 'Uzman';
-    const titleOpts = TITLE_ORDER_UI.map(t => {
-      const bar = ADMIN_TITLES[t];
-      return `<option value="${t}" ${t === sugT ? 'selected' : ''}>${t} (${formatMoney(bar.min)}–${formatMoney(bar.max)}/ay)</option>`;
+    const sugT = c.suggestedTitle || (titleList[1] || 'Uzman');
+    const titleOpts = titleList.map(t => {
+      const sal = getUnitTitleSalary(unitId, t);
+      const minSal = sal?.min ?? (ADMIN_TITLES[t]?.min || 15000);
+      const maxSal = sal?.max ?? (ADMIN_TITLES[t]?.max || 25000);
+      return `<option value="${t}" ${t === sugT ? 'selected' : ''}>${t} (${formatMoney(minSal)}–${formatMoney(maxSal)}/ay)</option>`;
     }).join('');
 
     return `

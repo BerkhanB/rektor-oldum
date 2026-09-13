@@ -747,17 +747,41 @@ export function getUnitTitleSalary(unitId, title) {
 function _nextUnitTitle(unitId, currentTitle) {
   const titles = ADMIN_UNITS[unitId]?.titles;
   if (!titles) return _nextAdminTitle(currentTitle);
-  const idx = titles.findIndex(t => t.name === currentTitle);
+  let idx = titles.findIndex(t => t.name === currentTitle);
+  if (idx < 0) {
+    let legacyIdx = ADMIN_TITLE_ORDER.indexOf(currentTitle);
+    if (legacyIdx < 0) {
+      if (currentTitle === 'Müdür' || currentTitle.endsWith('Müdürü')) legacyIdx = titles.length - 1;
+      else if (currentTitle === 'Müdür Yrd.' || currentTitle === 'Müdür Yardımcısı' || currentTitle.includes('Müdür Yrd')) legacyIdx = Math.max(0, titles.length - 2);
+      else if (currentTitle === 'Şef') legacyIdx = 2;
+      else if (currentTitle === 'Uzman') legacyIdx = 1;
+      else if (currentTitle === 'Memur') legacyIdx = 0;
+    }
+    if (legacyIdx >= 0 && legacyIdx < titles.length) {
+      idx = legacyIdx;
+    }
+  }
   if (idx < 0 || idx >= titles.length - 1) return null;
   return titles[idx + 1].name;
 }
 
+/** Dışa aktarılan birim üst unvan bulucu */
+export function getNextUnitTitle(unitId, currentTitle) {
+  return _nextUnitTitle(unitId, currentTitle);
+}
+
 /** Bir unvan birim için yönetici seviyesinde mi (son 2 unvan)? */
 export function isUnitManagerTitle(unitId, title) {
+  if (!title) return false;
+  // Eski ve genel unvanları her zaman yönetici say
+  if (title === 'Müdür' || title === 'Müdür Yrd.' || title === 'Müdür Yardımcısı' || title.endsWith('Müdürü') || title.includes('Müdür')) {
+    return true;
+  }
   const titles = ADMIN_UNITS[unitId]?.titles;
-  if (!titles) return title === 'Müdür' || title === 'Müdür Yrd.';
+  if (!titles) return title.includes('Müdür') || title.includes('Amir');
   const idx = titles.findIndex(t => t.name === title);
-  return idx >= titles.length - 2;
+  if (idx >= 0) return idx >= titles.length - 2;
+  return title.includes('Müdür') || title.includes('Amir') || title.includes('Sorumlu') || title.includes('Şef');
 }
 
 /**
@@ -770,7 +794,19 @@ export function isUnitManagerTitle(unitId, title) {
  */
 function _checkPromotionEligibility(staff) {
   const titleNames = getUnitTitles(staff.unit);
-  const idx = titleNames.indexOf(staff.title);
+  let idx = titleNames.indexOf(staff.title);
+  if (idx < 0) {
+    let legIdx = ADMIN_TITLE_ORDER.indexOf(staff.title);
+    if (legIdx < 0) {
+      if (staff.title === 'Müdür' || staff.title.endsWith('Müdürü')) legIdx = 4;
+      else if (staff.title === 'Müdür Yrd.' || staff.title === 'Müdür Yardımcısı') legIdx = 3;
+      else if (staff.title === 'Şef') legIdx = 2;
+      else if (staff.title === 'Uzman') legIdx = 1;
+      else if (staff.title === 'Memur') legIdx = 0;
+    }
+    if (legIdx >= 0 && legIdx < titleNames.length) idx = legIdx;
+  }
+
   const yip = safeNum(staff.yearsInPosition);
   const q   = safeNum(staff.quality);
   const eff = safeNum(staff.efficiency);
@@ -971,7 +1007,7 @@ export function autoPromoteAdminStaff(unitId = null) {
     const eligibleStaff = adminStaff.filter(s => {
       if (s.unit !== uid) return false;
       if (!s.promotionEligible) return false;
-      const nextTitle = _nextAdminTitle(s.title);
+      const nextTitle = _nextUnitTitle(s.unit, s.title);
       return !!nextTitle;
     });
 
@@ -4911,6 +4947,46 @@ export function getTurnSummary(simResults = {}) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * İdari personel ve birimlerin veri bütünlüğünü sağlar:
+ * - Eski/ortak unvanları (Memur, Uzman, Şef, Müdür Yrd., Müdür) birim bazlı unvanlara dönüştürür.
+ * - Yöneticisi atanmamış birimlere en uygun personeli (Müdür / Müdür Yrd. / en üst 2 unvan) otomatik atar.
+ * - Terfi uygunluklarını birim hiyerarşisine göre günceller.
+ */
+function _ensureAdminStaffIntegrity(state) {
+  if (!state || !Array.isArray(state.adminStaff) || !state.adminUnits) return;
+
+  for (const s of state.adminStaff) {
+    const unitTitles = ADMIN_UNITS[s.unit]?.titles;
+    if (!unitTitles) continue;
+    const unitTitleNames = unitTitles.map(t => t.name);
+
+    if (!unitTitleNames.includes(s.title)) {
+      let targetIdx = ADMIN_TITLE_ORDER.indexOf(s.title);
+      if (targetIdx < 0) {
+        if (s.title === 'Müdür' || s.title.endsWith('Müdürü')) targetIdx = unitTitleNames.length - 1;
+        else if (s.title === 'Müdür Yrd.' || s.title === 'Müdür Yardımcısı' || s.title.includes('Müdür Yrd')) targetIdx = Math.max(0, unitTitleNames.length - 2);
+        else if (s.title === 'Şef') targetIdx = 2;
+        else if (s.title === 'Uzman') targetIdx = 1;
+        else if (s.title === 'Memur') targetIdx = 0;
+      }
+      if (targetIdx >= 0 && targetIdx < unitTitleNames.length) {
+        const oldTitle = s.title;
+        s.title = unitTitleNames[targetIdx];
+        console.log(`[game] _ensureAdminStaffIntegrity: ${s.name} (${s.unit}) unvanı güncellendi: ${oldTitle} → ${s.title}`);
+      }
+    }
+  }
+
+  // Yöneticileri kontrol et ve ata
+  _assignUnitManagers(state.adminUnits, state.adminStaff);
+
+  // Terfi uygunluklarını kontrol et
+  for (const s of state.adminStaff) {
+    _checkPromotionEligibility(s);
+  }
+}
+
+/**
  * Oyun state'ini dışarıya verir.
  * Derin kopya yapılır; dış kod state'i doğrudan değiştiremez.
  *
@@ -4918,6 +4994,7 @@ export function getTurnSummary(simResults = {}) {
  */
 export function getState() {
   if (!_state) return null;
+  _ensureAdminStaffIntegrity(_state);
   return deepClone(_state);
 }
 
@@ -5098,20 +5175,8 @@ function migrateState(state) {
     }
   }
 
-  // v0.4.53 Migration: eski ortak rütbeler (Memur/Uzman/Şef/Müdür Yrd./Müdür) birim özel unvanlara dönüştür
-  for (const s of (state.adminStaff || [])) {
-    const newTitles = ADMIN_UNITS[s.unit]?.titles;
-    if (!newTitles) continue; // bilinmeyen birim, dokunma
-    const newTitleNames = newTitles.map(t => t.name);
-    if (newTitleNames.includes(s.title)) continue; // zaten yeni unvan
-    // Eski rütbeyi pozisyon ile yeni unvana çevir
-    const oldIdx = ADMIN_TITLE_ORDER.indexOf(s.title);
-    if (oldIdx >= 0 && oldIdx < newTitleNames.length) {
-      const oldTitle = s.title;
-      s.title = newTitleNames[oldIdx];
-      console.log(`[game] migrateState: ${s.name} (${s.unit}) unvanı güncellendi: ${oldTitle} → ${s.title}`);
-    }
-  }
+  // İdari personel unvan bütünlüğü ve yönetici atamaları
+  _ensureAdminStaffIntegrity(state);
 }
 
 // setState — Yüklenen state'i doğrudan uygula (kayıt yükleme için)
